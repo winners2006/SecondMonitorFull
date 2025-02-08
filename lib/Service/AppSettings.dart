@@ -110,6 +110,8 @@ class AppSettings {
 
   final String customFontPath;
 
+  final String fontFamily;
+
 
 
   AppSettings({
@@ -217,6 +219,8 @@ class AppSettings {
     this.itemsFontColor = Colors.black,
 
     this.customFontPath = '',
+
+    this.fontFamily = '',
 
   });
 
@@ -444,6 +448,8 @@ class AppSettings {
 
       customFontPath: prefs.getString('customFontPath') ?? '',
 
+      fontFamily: prefs.getString('fontFamily') ?? '',
+
     );
 
   }
@@ -551,6 +557,8 @@ class AppSettings {
     await prefs.setInt('itemsFontColor', itemsFontColor.value);
 
     await prefs.setString('customFontPath', customFontPath);
+
+    await prefs.setString('fontFamily', fontFamily);
 
   }
 
@@ -736,6 +744,8 @@ class AppSettings {
 
       customFontPath: json['customFontPath'] ?? '',
 
+      fontFamily: json['fontFamily'] ?? '',
+
     );
 
   }
@@ -840,7 +850,177 @@ class AppSettings {
 
       'customFontPath': customFontPath,
 
+      'fontFamily': fontFamily,
+
     };
+
+  }
+
+
+
+  AppSettings copyWith({
+
+    String? customFontPath,
+
+    bool? isFullScreen,
+
+    String? videoFilePath,
+
+    String? videoUrl,
+
+    bool? isVideoFromInternet,
+
+    bool? showLoyaltyWidget,
+
+    Color? backgroundColor,
+
+    Color? borderColor,
+
+    String? backgroundImagePath,
+
+    bool? useBackgroundImage,
+
+    String? logoPath,
+
+    bool? showSideAdvert,
+
+    bool? isSideAdvertFromInternet,
+
+    String? sideAdvertVideoPath,
+
+    String? sideAdvertVideoUrl,
+
+    Map<String, Map<String, double>>? widgetPositions,
+
+    bool? showAdvertWithoutSales,
+
+    String? openSettingsHotkey,
+
+    String? closeMainWindowHotkey,
+
+    Color? loyaltyWidgetColor,
+
+    Color? paymentWidgetColor,
+
+    Color? summaryWidgetColor,
+
+    Color? itemsWidgetColor,
+
+    double? loyaltyFontSize,
+
+    Color? loyaltyFontColor,
+
+    double? paymentFontSize,
+
+    Color? paymentFontColor,
+
+    double? summaryFontSize,
+
+    Color? summaryFontColor,
+
+    double? itemsFontSize,
+
+    Color? itemsFontColor,
+
+    String? fontFamily,
+
+  }) {
+
+    return AppSettings(
+
+      customFontPath: customFontPath ?? this.customFontPath,
+
+      isFullScreen: isFullScreen ?? this.isFullScreen,
+
+      videoFilePath: videoFilePath ?? this.videoFilePath,
+
+      videoUrl: videoUrl ?? this.videoUrl,
+
+      isVideoFromInternet: isVideoFromInternet ?? this.isVideoFromInternet,
+
+      showLoyaltyWidget: showLoyaltyWidget ?? this.showLoyaltyWidget,
+
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+
+      borderColor: borderColor ?? this.borderColor,
+
+      backgroundImagePath: backgroundImagePath ?? this.backgroundImagePath,
+
+      useBackgroundImage: useBackgroundImage ?? this.useBackgroundImage,
+
+      logoPath: logoPath ?? this.logoPath,
+
+      showSideAdvert: showSideAdvert ?? this.showSideAdvert,
+
+      isSideAdvertFromInternet: isSideAdvertFromInternet ?? this.isSideAdvertFromInternet,
+
+      sideAdvertVideoPath: sideAdvertVideoPath ?? this.sideAdvertVideoPath,
+
+      sideAdvertVideoUrl: sideAdvertVideoUrl ?? this.sideAdvertVideoUrl,
+
+      widgetPositions: widgetPositions ?? this.widgetPositions,
+
+      showAdvertWithoutSales: showAdvertWithoutSales ?? this.showAdvertWithoutSales,
+
+      openSettingsHotkey: openSettingsHotkey ?? this.openSettingsHotkey,
+
+      closeMainWindowHotkey: closeMainWindowHotkey ?? this.closeMainWindowHotkey,
+
+      loyaltyWidgetColor: loyaltyWidgetColor ?? this.loyaltyWidgetColor,
+
+      paymentWidgetColor: paymentWidgetColor ?? this.paymentWidgetColor,
+
+      summaryWidgetColor: summaryWidgetColor ?? this.summaryWidgetColor,
+
+      itemsWidgetColor: itemsWidgetColor ?? this.itemsWidgetColor,
+
+      loyaltyFontSize: loyaltyFontSize ?? this.loyaltyFontSize,
+
+      loyaltyFontColor: loyaltyFontColor ?? this.loyaltyFontColor,
+
+      paymentFontSize: paymentFontSize ?? this.paymentFontSize,
+
+      paymentFontColor: paymentFontColor ?? this.paymentFontColor,
+
+      summaryFontSize: summaryFontSize ?? this.summaryFontSize,
+
+      summaryFontColor: summaryFontColor ?? this.summaryFontColor,
+
+      itemsFontSize: itemsFontSize ?? this.itemsFontSize,
+
+      itemsFontColor: itemsFontColor ?? this.itemsFontColor,
+
+      autoStart: this.autoStart,
+
+      useInactivityTimer: this.useInactivityTimer,
+
+      inactivityTimeout: this.inactivityTimeout,
+
+      showLogo: this.showLogo,
+
+      showPaymentQR: this.showPaymentQR,
+
+      showSummary: this.showSummary,
+
+      webSocketUrl: this.webSocketUrl,
+
+      httpUrl: this.httpUrl,
+
+      isVersion85: this.isVersion85,
+
+      webSocketPort: this.webSocketPort,
+
+      httpPort: this.httpPort,
+
+      advertVideoPath: this.advertVideoPath,
+
+      advertVideoUrl: this.advertVideoUrl,
+
+      isAdvertFromInternet: this.isAdvertFromInternet,
+
+      fontFamily: fontFamily ?? this.fontFamily,
+
+    );
 
   }
 

@@ -55,11 +55,11 @@ class SettingsApp extends StatelessWidget {
 // Параллельный запуск окна настроек
 void showSettingsWindow() async {
   await windowManager.show();
-  windowManager.setSize(const Size(400, 300));  // Размер окна настроек
+  windowManager.setSize(const Size(400, 300));
   windowManager.setTitle('Настройки');
   windowManager.setResizable(false);
 
-  runApp(const SettingsWindow());
+  runApp(const SettingsApp());
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();

@@ -12,10 +12,11 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
+import 'package:second_monitor/Service/FontManager.dart';
 
 // Окно настроек приложения
 class SettingsWindow extends StatefulWidget {
-  const SettingsWindow({super.key});
+  const SettingsWindow({Key? key}) : super(key: key);
 
   @override
   _SettingsWindowState createState() => _SettingsWindowState();
@@ -221,56 +222,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
   }
 
   // Сохранение настроек в хранилище
-  void _saveSettings() {
-    // Сначала создаем новый объект AppSettings с текущими значениями
-    settings = AppSettings(
-      isFullScreen: isFullScreen,
-      videoFilePath: videoFilePath,
-      videoUrl: videoUrl,
-      isVideoFromInternet: isVideoFromInternet,
-      showLoyaltyWidget: showLoyaltyWidget,
-      backgroundColor: backgroundColor,
-      borderColor: borderColor,
-      backgroundImagePath: backgroundImagePath,
-      useBackgroundImage: useBackgroundImage,
-      logoPath: logoPath,
-      showAdvertWithoutSales: showAdvertWithoutSales,
-      showSideAdvert: showSideAdvert,
-      sideAdvertVideoPath: sideAdvertVideoPath,
-      isSideAdvertFromInternet: isSideAdvertFromInternet,
-      sideAdvertVideoUrl: sideAdvertVideoUrl,
-      widgetPositions: widgetPositions,
-      logoPosition: logoPosition,
-      selectedResolution: selectedResolution,
-      autoStart: autoStart,
-      useInactivityTimer: useInactivityTimer,
-      inactivityTimeout: inactivityTimeout,
-      webSocketUrl: webSocketUrl,
-      httpUrl: httpUrl,
-      isVersion85: isVersion85,
-      webSocketPort: webSocketPort,
-      httpPort: httpPort,
-      loyaltyWidgetColor: settings.loyaltyWidgetColor,
-      paymentWidgetColor: settings.paymentWidgetColor,
-      summaryWidgetColor: settings.summaryWidgetColor,
-      itemsWidgetColor: settings.itemsWidgetColor,
-      loyaltyFontSize: settings.loyaltyFontSize,
-      paymentFontSize: settings.paymentFontSize,
-      summaryFontSize: settings.summaryFontSize,
-      itemsFontSize: settings.itemsFontSize,
-      loyaltyFontColor: settings.loyaltyFontColor,
-      paymentFontColor: settings.paymentFontColor,
-      summaryFontColor: settings.summaryFontColor,
-      itemsFontColor: settings.itemsFontColor,
-      customFontPath: settings.customFontPath,
-    );
-
-    // Затем сохраняем настройки
-    settings.saveSettings().then((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
+  Future<void> _saveSettings() async {
+    await settings.saveSettings();
   }
 
   // Выбор видеофайла
@@ -283,7 +236,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       setState(() {
         videoFilePath = result.files.single.path!;
       });
-      _saveSettings();
+      await _saveSettings();
       _resetInactivityTimer();
     }
   }
@@ -302,7 +255,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
           backgroundImagePath = result.files.single.path!;
         }
       });
-      _saveSettings();
+      await _saveSettings();
       _resetInactivityTimer();
     }
   }
@@ -769,6 +722,117 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               ),
                             ],
                           ),
+                          // Настройки шрифта
+                          ExpansionTile(
+                            title: const Row(
+                              children: [
+                                Icon(Icons.text_fields),
+                                SizedBox(width: 10),
+                                Text('Настройки шрифта'),
+                              ],
+                            ),
+                            children: [
+                              // Загрузка пользовательского шрифта
+                              ListTile(
+                                title: const Text('Загрузить шрифт'),
+                                subtitle: Text(settings.customFontPath.isEmpty 
+                                  ? 'Используется системный шрифт' 
+                                  : settings.customFontPath.split('/').last),
+                                trailing: const Icon(Icons.upload_file),
+                                onTap: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['ttf', 'otf'],
+                                  );
+                                  if (result != null) {
+                                    final path = result.files.single.path!;
+                                    
+                                    // Создаем базовый стиль
+                                    final baseStyle = TextStyle(
+                                      fontSize: settings.loyaltyFontSize,
+                                      color: settings.loyaltyFontColor,
+                                    );
+                                    
+                                    // Загружаем шрифт через FontManager и получаем новый стиль
+                                    final newStyle = await FontManager.loadCustomFont(path, baseStyle);
+                                    
+                                    setState(() {
+                                      settings = _updateSettings(
+                                        customFontPath: path,
+                                        // Сохраняем имя шрифта из нового стиля
+                                        fontFamily: newStyle.fontFamily,
+                                      );
+                                    });
+                                    await _saveSettings();
+                                  }
+                                },
+                              ),
+                              const Divider(),
+                              // Общие настройки для всех виджетов
+                              ListTile(
+                                title: const Text('Общий размер шрифта'),
+                                subtitle: const Text('Применится ко всем виджетам'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('${settings.loyaltyFontSize.toInt()}'),
+                                    SizedBox(
+                                      width: 150,
+                                      child: Slider(
+                                        value: settings.loyaltyFontSize,
+                                        min: 10,
+                                        max: 30,
+                                        divisions: 20,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            settings = _updateSettings(
+                                              loyaltyFontSize: value,
+                                              paymentFontSize: value,
+                                              summaryFontSize: value,
+                                              itemsFontSize: value,
+                                            );
+                                          });
+                                          _saveSettings();
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ListTile(
+                                title: const Text('Общий цвет шрифта'),
+                                subtitle: const Text('Применится ко всем виджетам'),
+                                trailing: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: settings.loyaltyFontColor,
+                                    border: Border.all(color: Colors.grey),
+                                  ),
+                                ),
+                                onTap: () async {
+                                  final color = await showColorPicker(
+                                    context: context,
+                                    color: settings.loyaltyFontColor,
+                                  );
+                                  if (color != null) {
+                                    setState(() {
+                                      settings = _updateSettings(
+                                        loyaltyFontColor: color,
+                                        paymentFontColor: color,
+                                        summaryFontColor: color,
+                                        itemsFontColor: color,
+                                      );
+                                    });
+                                    _saveSettings();
+                                  }
+                                },
+                              ),
+                              const Divider(),
+                              // Остальные настройки шрифта...
+                              // ... существующий код ...
+                            ],
+                          ),
                         ],
                       ),
                       // Реклама
@@ -1045,8 +1109,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                       width: 2,
                     ),
                   ),
-                  ),
-                ],
+            )],
               
             ),
           ),
@@ -1723,23 +1786,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
                   _saveSettings();
                 },
               ),
-            )
-          else
-            ListTile(
-              title: const Text('Выбрать видео'),
-              trailing: const Icon(Icons.video_library),
-              onTap: () async {
-                final result = await FilePicker.platform.pickFiles(
-                  type: FileType.video,
-                  allowMultiple: false,
-                );
-                if (result != null) {
-                  setState(() {
-                    videoFilePath = result.files.single.path ?? '';
-                  });
-                  _saveSettings();
-                }
-              },
             ),
         ],
       ],
@@ -1794,6 +1840,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
     Color? summaryFontColor,
     Color? itemsFontColor,
     String? customFontPath,
+    String? fontFamily,
   }) {
     final newSettings = AppSettings(
       isFullScreen: settings.isFullScreen,
@@ -1835,6 +1882,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       summaryFontColor: summaryFontColor ?? settings.summaryFontColor,
       itemsFontColor: itemsFontColor ?? settings.itemsFontColor,
       customFontPath: customFontPath ?? settings.customFontPath,
+      fontFamily: fontFamily ?? settings.fontFamily,
     );
 
     newSettings.saveSettings(); // Сохраняем настройки

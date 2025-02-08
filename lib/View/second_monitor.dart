@@ -4,7 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard, RawKeyDownEvent;
 
 import 'package:window_manager/window_manager.dart';
 
@@ -24,8 +24,6 @@ import 'package:second_monitor/Model/PaymentQRCode.dart';
 
 import 'package:second_monitor/Model/Summary.dart';
 
-import 'package:second_monitor/Service/logger.dart';
-
 import 'package:second_monitor/Service/Server.dart';
 
 import 'dart:io';
@@ -40,9 +38,9 @@ import 'package:second_monitor/View/LaunchWindow.dart';
 
 import 'package:second_monitor/Model/Message1C.dart';
 
+import 'package:flutter/rendering.dart';
 
-
-
+import 'package:second_monitor/Service/FontManager.dart';
 
 
 
@@ -96,6 +94,26 @@ class Settings {
 
   Color itemsWidgetColor;  // Цвет виджета таблицы товаров
 
+  String customFontPath;  // Путь к пользовательскому шрифту
+
+  double loyaltyFontSize;  // Размер шрифта виджета лояльности
+
+  Color loyaltyFontColor;  // Цвет шрифта виджета лояльности
+
+  double paymentFontSize;  // Размер шрифта QR-кода
+
+  Color paymentFontColor;  // Цвет шрифта QR-кода
+
+  double summaryFontSize;  // Размер шрифта итогов
+
+  Color summaryFontColor;  // Цвет шрифта итогов
+
+  double itemsFontSize;  // Размер шрифта таблицы товаров
+
+  Color itemsFontColor;  // Цвет шрифта таблицы товаров
+
+  String fontFamily;  // Название шрифта
+
 
 
   Settings({
@@ -145,6 +163,26 @@ class Settings {
     required this.summaryWidgetColor,
 
     required this.itemsWidgetColor,
+
+    required this.customFontPath,
+
+    required this.loyaltyFontSize,
+
+    required this.loyaltyFontColor,
+
+    required this.paymentFontSize,
+
+    required this.paymentFontColor,
+
+    required this.summaryFontSize,
+
+    required this.summaryFontColor,
+
+    required this.itemsFontSize,
+
+    required this.itemsFontColor,
+
+    required this.fontFamily,
 
   });
 
@@ -199,6 +237,26 @@ class Settings {
       summaryWidgetColor: Color(json['summaryWidgetColor'] ?? 0xFFFFFFFF),
 
       itemsWidgetColor: Color(json['itemsWidgetColor'] ?? 0xFFFFFFFF),
+
+      customFontPath: json['customFontPath'] ?? '',
+
+      loyaltyFontSize: json['loyaltyFontSize'] ?? 16.0,
+
+      loyaltyFontColor: Color(json['loyaltyFontColor'] ?? 0xFF000000),
+
+      paymentFontSize: json['paymentFontSize'] ?? 16.0,
+
+      paymentFontColor: Color(json['paymentFontColor'] ?? 0xFF000000),
+
+      summaryFontSize: json['summaryFontSize'] ?? 16.0,
+
+      summaryFontColor: Color(json['summaryFontColor'] ?? 0xFF000000),
+
+      itemsFontSize: json['itemsFontSize'] ?? 16.0,
+
+      itemsFontColor: Color(json['itemsFontColor'] ?? 0xFF000000),
+
+      fontFamily: json['fontFamily'] ?? '',
 
     );
 
@@ -256,6 +314,26 @@ class Settings {
 
       'itemsWidgetColor': itemsWidgetColor.value,
 
+      'customFontPath': customFontPath,
+
+      'loyaltyFontSize': loyaltyFontSize,
+
+      'loyaltyFontColor': loyaltyFontColor.value,
+
+      'paymentFontSize': paymentFontSize,
+
+      'paymentFontColor': paymentFontColor.value,
+
+      'summaryFontSize': summaryFontSize,
+
+      'summaryFontColor': summaryFontColor.value,
+
+      'itemsFontSize': itemsFontSize,
+
+      'itemsFontColor': itemsFontColor.value,
+
+      'fontFamily': fontFamily,
+
     };
 
   }
@@ -284,7 +362,7 @@ class SecondMonitor extends StatefulWidget {
 
 
 
-class _SecondMonitorState extends State<SecondMonitor> {
+class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserver {
 
   late AppSettings settings;  // Переменная для хранения настроек
 
@@ -317,6 +395,8 @@ class _SecondMonitorState extends State<SecondMonitor> {
   void initState() {
 
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
 
     _focusNode.requestFocus();
 
@@ -400,6 +480,26 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
       itemsWidgetColor: Colors.white,
 
+      customFontPath: '',
+
+      loyaltyFontSize: 16.0,
+
+      loyaltyFontColor: Colors.black,
+
+      paymentFontSize: 16.0,
+
+      paymentFontColor: Colors.black,
+
+      summaryFontSize: 16.0,
+
+      summaryFontColor: Colors.black,
+
+      itemsFontSize: 16.0,
+
+      itemsFontColor: Colors.black,
+
+      fontFamily: '',
+
     );
 
 
@@ -459,6 +559,14 @@ class _SecondMonitorState extends State<SecondMonitor> {
       _initFullScreen();
 
     });
+
+
+
+    if (settings.customFontPath.isNotEmpty) {
+
+      _loadCustomFont();
+
+    }
 
   }
 
@@ -944,7 +1052,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
           children: [
 
-            const FittedBox(
+            FittedBox(
 
               fit: BoxFit.scaleDown,
 
@@ -952,7 +1060,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                 'ПРОГРАММА ЛОЯЛЬНОСТИ',
 
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
 
               ),
 
@@ -974,7 +1082,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       fit: BoxFit.scaleDown,
 
-                      child: Text('Уровень: ${_loyaltyProgram!.cardNumber}'),
+                      child: Text(
+
+                        'Уровень: ${_loyaltyProgram!.cardNumber}',
+
+                        style: _getWidgetTextStyle(type),
+
+                      ),
 
                     ),
 
@@ -982,23 +1096,41 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       fit: BoxFit.scaleDown,
 
-                      child: Text('Баллы: ${_loyaltyProgram!.bonusBalance}'),
+                      child: Text(
+
+                        'Баллы: ${_loyaltyProgram!.bonusBalance}',
+
+                        style: _getWidgetTextStyle(type),
+
+                      ),
 
                     ),
 
-                    const FittedBox(
+                    FittedBox(
 
                       fit: BoxFit.scaleDown,
 
-                      child: Text('До следующего уровня: 0'),
+                      child: Text(
+
+                        'До следующего уровня: 0',
+
+                        style: _getWidgetTextStyle(type),
+
+                      ),
 
                     ),
 
-                    const FittedBox(
+                    FittedBox(
 
                       fit: BoxFit.scaleDown,
 
-                      child: Text('Сгорание: 15 750 до 31.12.2025'),
+                      child: Text(
+
+                        'Сгорание: 15 750 до 31.12.2025',
+
+                        style: _getWidgetTextStyle(type),
+
+                      ),
 
                     ),
 
@@ -1009,25 +1141,17 @@ class _SecondMonitorState extends State<SecondMonitor> {
               ),
 
             ] else
-
-              const Expanded(
-
+              Expanded(
                 child: Center(
-
                   child: FittedBox(
-
-                    child: Text('Нет данных'),
-
+                    child: Text(
+                      'Нет данных',
+                      style: _getWidgetTextStyle(type),
+                    ),
                   ),
-
                 ),
-
               ),
-
-          ],
-
-        );
-
+            ]);
         break;
 
 
@@ -1072,7 +1196,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
           children: [
 
-            const FittedBox(
+            FittedBox(
 
               fit: BoxFit.scaleDown,
 
@@ -1080,7 +1204,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                 'ИТОГО',
 
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
 
               ),
 
@@ -1100,7 +1224,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                     fit: BoxFit.scaleDown,
 
-                    child: Text('Позиций: ${_checkItems.length}'),
+                    child: Text(
+
+                      'Позиций: ${_checkItems.length}',
+
+                      style: _getWidgetTextStyle(type),
+
+                    ),
 
                   ),
 
@@ -1110,7 +1240,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       fit: BoxFit.scaleDown,
 
-                      child: Text('Сумма: $totalBeforeDiscount'),
+                      child: Text(
+
+                        'Сумма: $totalBeforeDiscount',
+
+                        style: _getWidgetTextStyle(type),
+
+                      ),
 
                     ),
 
@@ -1118,7 +1254,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       fit: BoxFit.scaleDown,
 
-                      child: Text('Скидка: $discount'),
+                      child: Text(
+
+                        'Скидка: $discount',
+
+                        style: _getWidgetTextStyle(type),
+
+                      ),
 
                     ),
 
@@ -1130,7 +1272,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                         'К ОПЛАТЕ: $finalAmount',
 
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
 
                       ),
 
@@ -1162,7 +1304,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
       default:
 
-        content = Text(_getWidgetTitle(type));
+        content = Text(
+
+          _getWidgetTitle(type),
+
+          style: _getWidgetTextStyle(type),
+
+        );
 
     }
 
@@ -1256,7 +1404,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
           color: Colors.grey[200],
 
-          child: const Row(
+          child: Row(
 
             children: [
 
@@ -1266,9 +1414,15 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                 child: Padding(
 
-                  padding: EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(8.0),
 
-                  child: Text('№', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+
+                    '№',
+
+                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+
+                  ),
 
                 ),
 
@@ -1280,23 +1434,15 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                 child: Padding(
 
-                  padding: EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(8.0),
 
-                  child: Text('Наименование', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
 
-                ),
+                    'Наименование',
 
-              ),
+                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
 
-              Expanded(
-
-                flex: 2,
-
-                child: Padding(
-
-                  padding: EdgeInsets.all(8.0),
-
-                  child: Text('Кол-во', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
 
                 ),
 
@@ -1308,14 +1454,38 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                 child: Padding(
 
-                  padding: EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(8.0),
 
-                  child: Text('Цена', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+
+                    'Кол-во',
+
+                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+
+                  ),
 
                 ),
 
               ),
 
+              Expanded(
+
+                flex: 2,
+
+                child: Padding(
+
+                  padding: const EdgeInsets.all(8.0),
+
+                  child: Text(
+
+                    'Цена',
+
+                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+
+                  ),
+
+                ),
+              ),
             ],
 
           ),
@@ -1344,7 +1514,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       padding: const EdgeInsets.all(8.0),
 
-                      child: Text('${index + 1}'),
+                      child: Text(
+
+                        '${index + 1}',
+
+                        style: _getWidgetTextStyle('items'),
+
+                      ),
 
                     ),
 
@@ -1358,7 +1534,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       padding: const EdgeInsets.all(8.0),
 
-                      child: Text(item.name),
+                      child: Text(
+
+                        item.name,
+
+                        style: _getWidgetTextStyle('items'),
+
+                      ),
 
                     ),
 
@@ -1372,7 +1554,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       padding: const EdgeInsets.all(8.0),
 
-                      child: Text('${item.quantity}'),
+                      child: Text(
+
+                        '${item.quantity}',
+
+                        style: _getWidgetTextStyle('items'),
+
+                      ),
 
                     ),
 
@@ -1386,7 +1574,13 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
                       padding: const EdgeInsets.all(8.0),
 
-                      child: Text('${item.price}'),
+                      child: Text(
+
+                        '${item.price}',
+
+                        style: _getWidgetTextStyle('items'),
+
+                      ),
 
                     ),
 
@@ -1490,7 +1684,7 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
       context,
 
-      MaterialPageRoute(builder: (context) => LaunchWindow()),
+      MaterialPageRoute(builder: (context) => const LaunchWindow()),
 
     );
 
@@ -1501,7 +1695,6 @@ class _SecondMonitorState extends State<SecondMonitor> {
   bool _isHotkeyMatch(RawKeyEvent event, String hotkey) {
 
     if (hotkey.isEmpty) return false;
-
     
 
     print('Checking hotkey match:');
@@ -1570,6 +1763,12 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
   void dispose() {
 
+    WidgetsBinding.instance.removeObserver(this);
+
+    HardwareKeyboard.instance.clearState(); // Очищаем состояние клавиш
+
+    _focusNode.dispose();
+
     _videoManager.dispose();
 
     _sideAdvertVideoManager.dispose();
@@ -1578,9 +1777,175 @@ class _SecondMonitorState extends State<SecondMonitor> {
 
     _server.stopServer();
 
-    _focusNode.dispose();  // Освобождаем ресурсы
-
     super.dispose();
+
+  }
+
+
+
+  @override
+
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+
+    if (state == AppLifecycleState.inactive || 
+
+        state == AppLifecycleState.paused) {
+
+      HardwareKeyboard.instance.clearState();
+
+    }
+
+  }
+
+
+
+  TextStyle _getWidgetTextStyle(String type) {
+
+    FontWeight weight = FontWeight.normal;
+
+    double? fontSize;
+
+    Color? color;
+
+    
+
+    switch (type) {
+
+      case 'loyalty':
+
+        fontSize = settings.loyaltyFontSize;
+
+        color = settings.loyaltyFontColor;
+
+        break;
+
+      case 'payment':
+
+        fontSize = settings.paymentFontSize;
+
+        color = settings.paymentFontColor;
+
+        break;
+
+      case 'summary':
+
+        fontSize = settings.summaryFontSize;
+
+        color = settings.summaryFontColor;
+
+        break;
+
+      case 'items':
+
+        fontSize = settings.itemsFontSize;
+
+        color = settings.itemsFontColor;
+
+        break;
+
+    }
+
+
+
+    return TextStyle(
+
+      fontFamily: settings.fontFamily.isNotEmpty ? settings.fontFamily : null,
+
+      fontSize: fontSize,
+
+      color: color,
+
+      fontWeight: weight,
+
+    );
+
+  }
+
+
+
+  Future<void> _loadCustomFont() async {
+
+    try {
+
+      if (settings.customFontPath.isEmpty) return;
+      
+
+      // Создаем базовый стиль
+
+      final baseStyle = TextStyle(
+
+        fontSize: settings.loyaltyFontSize,
+
+        color: settings.loyaltyFontColor,
+
+      );
+      
+
+      // Загружаем и применяем шрифт через FontManager
+
+      final newStyle = await FontManager.loadCustomFont(settings.customFontPath, baseStyle);
+      
+
+      // Обновляем UI
+
+      setState(() {
+
+        settings = settings.copyWith(
+
+          customFontPath: 'CustomFont', // Используем имя, заданное в FontManager
+
+        );
+
+      });
+      
+
+      print('Font loaded successfully: CustomFont');
+
+    } catch (e) {
+
+      print('Error loading font: $e');
+
+    }
+
+  }
+
+
+
+  Future<void> updateFont(String newFontPath) async {
+
+    try {
+
+      settings = settings.copyWith(
+
+        customFontPath: newFontPath,
+
+      );
+      
+
+      await settings.saveSettings();
+      
+
+      if (context.mounted) {
+
+        Navigator.pushReplacement(
+
+          context,
+
+          MaterialPageRoute(
+
+            builder: (context) => const LaunchWindow(),
+
+          ),
+
+        );
+
+      }
+
+    } catch (e) {
+
+      print('Error updating font: $e');
+
+    }
 
   }
 
