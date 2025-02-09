@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'dart:io';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:flutter/material.dart';
 
 import 'dart:convert';
@@ -228,227 +226,131 @@ class AppSettings {
 
   static Future<AppSettings> loadSettings() async {
 
-    final prefs = await SharedPreferences.getInstance();
+    try {
 
+      final appDataDir = await _getAppDataPath();
 
+      final settingsFile = File('$appDataDir/settings.json');
 
-    bool isFullScreen = prefs.getBool('isFullScreen') ?? false;
+      
 
-    String videoFilePath = prefs.getString('videoFilePath') ?? '';
+      if (await settingsFile.exists()) {
 
-    String videoUrl = prefs.getString('videoUrl') ?? '';
+        final jsonString = await settingsFile.readAsString();
 
-    bool isVideoFromInternet = prefs.getBool('isVideoFromInternet') ?? true;
+        final jsonData = jsonDecode(jsonString);
 
-    bool showLoyaltyWidget = prefs.getBool('showLoyaltyWidget') ?? true;
+        return AppSettings.fromJson(jsonData);
 
-    Color backgroundColor = Color(prefs.getInt('backgroundColor') ?? Colors.white.value);
+      }
 
-    Color borderColor = Color(prefs.getInt('borderColor') ?? Colors.black.value);
+    } catch (e) {
 
-    String backgroundImagePath = prefs.getString('backgroundImagePath') ?? '';
+      log('Error loading settings: $e');
 
-    bool useBackgroundImage = prefs.getBool('useBackgroundImage') ?? false;
-
-    String logoPath = prefs.getString('logoPath') ?? '';
-
-    bool showAdvertWithoutSales = prefs.getBool('showAdvertWithoutSales') ?? false;
-
-    bool showSideAdvert = prefs.getBool('showSideAdvert') ?? false;
-
-    String sideAdvertVideoPath = prefs.getString('sideAdvertVideoPath') ?? '';
-
-    bool isSideAdvertFromInternet = prefs.getBool('isSideAdvertFromInternet') ?? true;
-
-    String sideAdvertVideoUrl = prefs.getString('sideAdvertVideoUrl') ?? '';
-
-    Map<String, Map<String, double>> widgetPositions = {};
-
-
-
-    // Загрузка позиций виджетов
-
-    final widgetPositionsStr = prefs.getString('widgetPositions');
+    }
 
     
 
-    if (widgetPositionsStr != null) {
-
-      final decoded = jsonDecode(widgetPositionsStr);
-
-      (decoded as Map<String, dynamic>).forEach((key, value) {
-
-        widgetPositions[key] = {
-
-          'x': (value['x'] as num).toDouble(),
-
-          'y': (value['y'] as num).toDouble(),
-
-          'w': (value['w'] as num?)?.toDouble() ?? 200.0,
-
-          'h': (value['h'] as num?)?.toDouble() ?? 150.0,
-
-        };
-
-      });
-
-    } else {
-
-      widgetPositions = {
-
-        'loyalty': {'x': 0.0, 'y': 0.0, 'w': 200.0, 'h': 150.0},
-
-        'payment': {'x': 220.0, 'y': 0.0, 'w': 200.0, 'h': 150.0},
-
-        'summary': {'x': 440.0, 'y': 0.0, 'w': 200.0, 'h': 150.0},
-
-        'sideAdvert': {'x': 660.0, 'y': 0.0, 'w': 200.0, 'h': 300.0},
-
-        'items': {'x': 0.0, 'y': 400.0, 'w': 800.0, 'h': 300.0},
-
-      };
-
-    }
-
-
-
-    final logoPositionStr = prefs.getString('logoPosition');
-
-    Map<String, double> logoPosition = {
-
-      'x': 10.0,
-
-      'y': 10.0,
-
-      'w': 100.0,
-
-      'h': 50.0,
-
-    };
-
-    if (logoPositionStr != null) {
-
-      final Map<String, dynamic> decoded = jsonDecode(logoPositionStr);
-
-      logoPosition = decoded.map((key, value) => MapEntry(key, value.toDouble()));
-
-    }
-
-
-
-    String selectedResolution = prefs.getString('selectedResolution') ?? '1920x1080';
-
-    bool autoStart = prefs.getBool('autoStart') ?? false;
-
-    bool useInactivityTimer = prefs.getBool('useInactivityTimer') ?? true;
-
-    int inactivityTimeout = prefs.getInt('inactivityTimeout') ?? 50;
-
-
-
-    String openSettingsHotkey = prefs.getString('openSettingsHotkey') ?? 'Ctrl + Shift + S';
-
-    String closeMainWindowHotkey = prefs.getString('closeMainWindowHotkey') ?? 'Ctrl + Shift + L';
-
-
+    // Возвращаем настройки по умолчанию, если не удалось загрузить
 
     return AppSettings(
 
-      isFullScreen: isFullScreen,
+      isFullScreen: false,
 
-      videoFilePath: videoFilePath,
+      videoFilePath: '',
 
-      videoUrl: videoUrl,
+      videoUrl: '',
 
-      isVideoFromInternet: isVideoFromInternet,
+      isVideoFromInternet: true,
 
-      showLoyaltyWidget: showLoyaltyWidget,
+      showLoyaltyWidget: true,
 
-      backgroundColor: backgroundColor,
+      backgroundColor: Colors.white,
 
-      borderColor: borderColor,
+      borderColor: Colors.black,
 
-      backgroundImagePath: backgroundImagePath,
+      backgroundImagePath: '',
 
-      useBackgroundImage: useBackgroundImage,
+      useBackgroundImage: false,
 
-      logoPath: logoPath,
+      logoPath: '',
 
-      showAdvertWithoutSales: showAdvertWithoutSales,
+      showAdvertWithoutSales: false,
 
-      showSideAdvert: showSideAdvert,
+      showSideAdvert: false,
 
-      sideAdvertVideoPath: sideAdvertVideoPath,
+      sideAdvertVideoPath: '',
 
-      isSideAdvertFromInternet: isSideAdvertFromInternet,
+      isSideAdvertFromInternet: true,
 
-      sideAdvertVideoUrl: sideAdvertVideoUrl,
+      sideAdvertVideoUrl: '',
 
-      widgetPositions: widgetPositions,
+      widgetPositions: {},
 
-      logoPosition: logoPosition,
+      logoPosition: const {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0},
 
-      selectedResolution: selectedResolution,
+      selectedResolution: '1920x1080',
 
-      autoStart: autoStart,
+      autoStart: false,
 
-      useInactivityTimer: useInactivityTimer,
+      useInactivityTimer: true,
 
-      inactivityTimeout: inactivityTimeout,
+      inactivityTimeout: 50,
 
-      openSettingsHotkey: openSettingsHotkey,
+      openSettingsHotkey: 'Ctrl + Shift + S',
 
-      closeMainWindowHotkey: closeMainWindowHotkey,
+      closeMainWindowHotkey: 'Ctrl + Shift + L',
 
-      showLogo: prefs.getBool('showLogo') ?? true,
+      showLogo: true,
 
-      showPaymentQR: prefs.getBool('showPaymentQR') ?? true,
+      showPaymentQR: true,
 
-      showSummary: prefs.getBool('showSummary') ?? true,
+      showSummary: true,
 
-      webSocketUrl: prefs.getString('webSocketUrl') ?? 'localhost',
+      webSocketUrl: 'localhost',
 
-      httpUrl: prefs.getString('httpUrl') ?? 'localhost',
+      httpUrl: 'localhost',
 
-      isVersion85: prefs.getBool('isVersion85') ?? false,
+      isVersion85: false,
 
-      webSocketPort: prefs.getInt('webSocketPort') ?? 4002,
+      webSocketPort: 4002,
 
-      httpPort: prefs.getInt('httpPort') ?? 4001,
+      httpPort: 4001,
 
-      advertVideoPath: prefs.getString('advertVideoPath') ?? '',
+      advertVideoPath: '',
 
-      advertVideoUrl: prefs.getString('advertVideoUrl') ?? '',
+      advertVideoUrl: '',
 
-      isAdvertFromInternet: prefs.getBool('isAdvertFromInternet') ?? true,
+      isAdvertFromInternet: true,
 
-      loyaltyWidgetColor: Color(prefs.getInt('loyaltyWidgetColor') ?? Colors.white.value),
+      loyaltyWidgetColor: Colors.white,
 
-      paymentWidgetColor: Color(prefs.getInt('paymentWidgetColor') ?? Colors.white.value),
+      paymentWidgetColor: Colors.white,
 
-      summaryWidgetColor: Color(prefs.getInt('summaryWidgetColor') ?? Colors.white.value),
+      summaryWidgetColor: Colors.white,
 
-      itemsWidgetColor: Color(prefs.getInt('itemsWidgetColor') ?? Colors.white.value),
+      itemsWidgetColor: Colors.white,
 
-      loyaltyFontSize: prefs.getDouble('loyaltyFontSize') ?? 14.0,
+      loyaltyFontSize: 14.0,
 
-      paymentFontSize: prefs.getDouble('paymentFontSize') ?? 14.0,
+      paymentFontSize: 14.0,
 
-      summaryFontSize: prefs.getDouble('summaryFontSize') ?? 14.0,
+      summaryFontSize: 14.0,
 
-      itemsFontSize: prefs.getDouble('itemsFontSize') ?? 14.0,
+      itemsFontSize: 14.0,
 
-      loyaltyFontColor: Color(prefs.getInt('loyaltyFontColor') ?? Colors.black.value),
+      loyaltyFontColor: Colors.black,
 
-      paymentFontColor: Color(prefs.getInt('paymentFontColor') ?? Colors.black.value),
+      paymentFontColor: Colors.black,
 
-      summaryFontColor: Color(prefs.getInt('summaryFontColor') ?? Colors.black.value),
+      summaryFontColor: Colors.black,
 
-      itemsFontColor: Color(prefs.getInt('itemsFontColor') ?? Colors.black.value),
+      itemsFontColor: Colors.black,
 
-      customFontPath: prefs.getString('customFontPath') ?? '',
+      customFontPath: '',
 
-      fontFamily: prefs.getString('fontFamily') ?? '',
+      fontFamily: '',
 
     );
 
@@ -458,107 +360,52 @@ class AppSettings {
 
   Future<void> saveSettings() async {
 
-    final prefs = await SharedPreferences.getInstance();
+    try {
 
-    await prefs.setBool('isFullScreen', isFullScreen);
+      final appDataDir = await _getAppDataPath();
 
-    await prefs.setString('videoFilePath', videoFilePath);
+      final settingsFile = File('$appDataDir/settings.json');
+      
 
-    await prefs.setString('videoUrl', videoUrl);
+      log('Attempting to save settings to: ${settingsFile.path}');
+      
 
-    await prefs.setBool('isVideoFromInternet', isVideoFromInternet);
+      // Создаем директорию, если её нет
 
-    await prefs.setBool('showLoyaltyWidget', showLoyaltyWidget);
+      if (!await settingsFile.parent.exists()) {
 
-    await prefs.setInt('backgroundColor', backgroundColor.value);
+        await settingsFile.parent.create(recursive: true);
 
-    await prefs.setInt('borderColor', borderColor.value);
+      }
+      
 
-    await prefs.setString('backgroundImagePath', backgroundImagePath);
+      final Map<String, dynamic> jsonData = toJson();
 
-    await prefs.setBool('useBackgroundImage', useBackgroundImage);
+      final String jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
+      
 
-    await prefs.setString('logoPath', logoPath);
+      // Записываем файл
 
-    await prefs.setBool('showAdvertWithoutSales', showAdvertWithoutSales);
+      await settingsFile.writeAsString(
 
-    await prefs.setBool('showSideAdvert', showSideAdvert);
+        jsonString,
 
-    await prefs.setString('sideAdvertVideoPath', sideAdvertVideoPath);
+        mode: FileMode.writeOnly,
 
-    await prefs.setBool('isSideAdvertFromInternet', isSideAdvertFromInternet);
+        flush: true,
 
-    await prefs.setString('sideAdvertVideoUrl', sideAdvertVideoUrl);
+      );
+      
 
-    
+      log('Settings saved successfully');
 
-    // Сохранение позиций виджетов
+    } catch (e, stack) {
 
-    await prefs.setString('widgetPositions', jsonEncode(widgetPositions));
+      log('Error saving settings: $e');
 
-    await prefs.setString('logoPosition', jsonEncode(logoPosition));
+      log('Stack trace: $stack');
 
-    await prefs.setString('selectedResolution', selectedResolution);
-
-    await prefs.setBool('autoStart', autoStart);
-
-    await prefs.setBool('useInactivityTimer', useInactivityTimer);
-
-    await prefs.setInt('inactivityTimeout', inactivityTimeout);
-
-    await prefs.setString('openSettingsHotkey', openSettingsHotkey);
-
-    await prefs.setString('closeMainWindowHotkey', closeMainWindowHotkey);
-
-    await prefs.setBool('showLogo', showLogo);
-
-    await prefs.setBool('showPaymentQR', showPaymentQR);
-
-    await prefs.setBool('showSummary', showSummary);
-
-    await prefs.setString('webSocketUrl', webSocketUrl);
-
-    await prefs.setString('httpUrl', httpUrl);
-
-    await prefs.setBool('isVersion85', isVersion85);
-
-    await prefs.setInt('webSocketPort', webSocketPort);
-
-    await prefs.setInt('httpPort', httpPort);
-
-    await prefs.setString('advertVideoPath', advertVideoPath);
-
-    await prefs.setString('advertVideoUrl', advertVideoUrl);
-
-    await prefs.setBool('isAdvertFromInternet', isAdvertFromInternet);
-
-    await prefs.setInt('loyaltyWidgetColor', loyaltyWidgetColor.value);
-
-    await prefs.setInt('paymentWidgetColor', paymentWidgetColor.value);
-
-    await prefs.setInt('summaryWidgetColor', summaryWidgetColor.value);
-
-    await prefs.setInt('itemsWidgetColor', itemsWidgetColor.value);
-
-    await prefs.setDouble('loyaltyFontSize', loyaltyFontSize);
-
-    await prefs.setDouble('paymentFontSize', paymentFontSize);
-
-    await prefs.setDouble('summaryFontSize', summaryFontSize);
-
-    await prefs.setDouble('itemsFontSize', itemsFontSize);
-
-    await prefs.setInt('loyaltyFontColor', loyaltyFontColor.value);
-
-    await prefs.setInt('paymentFontColor', paymentFontColor.value);
-
-    await prefs.setInt('summaryFontColor', summaryFontColor.value);
-
-    await prefs.setInt('itemsFontColor', itemsFontColor.value);
-
-    await prefs.setString('customFontPath', customFontPath);
-
-    await prefs.setString('fontFamily', fontFamily);
+    }
 
   }
 
@@ -648,6 +495,42 @@ class AppSettings {
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
 
+    // Преобразование widgetPositions
+
+    Map<String, Map<String, double>> convertedWidgetPositions = {};
+
+    if (json['widgetPositions'] != null) {
+
+      (json['widgetPositions'] as Map<String, dynamic>).forEach((key, value) {
+
+        convertedWidgetPositions[key] = (value as Map<String, dynamic>).map(
+
+          (k, v) => MapEntry(k, (v as num).toDouble()),
+
+        );
+
+      });
+
+    }
+
+
+
+    // Преобразование logoPosition
+
+    Map<String, double> convertedLogoPosition = {};
+
+    if (json['logoPosition'] != null) {
+
+      (json['logoPosition'] as Map<String, dynamic>).forEach((key, value) {
+
+        convertedLogoPosition[key] = (value as num).toDouble();
+
+      });
+
+    }
+
+
+
     return AppSettings(
 
       isFullScreen: json['isFullScreen'] ?? false,
@@ -680,9 +563,9 @@ class AppSettings {
 
       sideAdvertVideoUrl: json['sideAdvertVideoUrl'] ?? '',
 
-      widgetPositions: json['widgetPositions'] ?? {},
+      widgetPositions: convertedWidgetPositions,
 
-      logoPosition: json['logoPosition'] ?? const {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0},
+      logoPosition: convertedLogoPosition,
 
       selectedResolution: json['selectedResolution'] ?? '1920x1080',
 
@@ -990,37 +873,57 @@ class AppSettings {
 
       itemsFontColor: itemsFontColor ?? this.itemsFontColor,
 
-      autoStart: this.autoStart,
+      autoStart: autoStart,
 
-      useInactivityTimer: this.useInactivityTimer,
+      useInactivityTimer: useInactivityTimer,
 
-      inactivityTimeout: this.inactivityTimeout,
+      inactivityTimeout: inactivityTimeout,
 
-      showLogo: this.showLogo,
+      showLogo: showLogo,
 
-      showPaymentQR: this.showPaymentQR,
+      showPaymentQR: showPaymentQR,
 
-      showSummary: this.showSummary,
+      showSummary: showSummary,
 
-      webSocketUrl: this.webSocketUrl,
+      webSocketUrl: webSocketUrl,
 
-      httpUrl: this.httpUrl,
+      httpUrl: httpUrl,
 
-      isVersion85: this.isVersion85,
+      isVersion85: isVersion85,
 
-      webSocketPort: this.webSocketPort,
+      webSocketPort: webSocketPort,
 
-      httpPort: this.httpPort,
+      httpPort: httpPort,
 
-      advertVideoPath: this.advertVideoPath,
+      advertVideoPath: advertVideoPath,
 
-      advertVideoUrl: this.advertVideoUrl,
+      advertVideoUrl: advertVideoUrl,
 
-      isAdvertFromInternet: this.isAdvertFromInternet,
+      isAdvertFromInternet: isAdvertFromInternet,
 
       fontFamily: fontFamily ?? this.fontFamily,
 
     );
+
+  }
+
+
+
+  static Future<String> _getAppDataPath() async {
+
+    if (Platform.isWindows) {
+
+      final appData = Platform.environment['APPDATA'];
+
+      return '$appData\\SecondMonitor';
+
+    } else {
+
+      final home = Platform.environment['HOME'];
+
+      return '$home/.secondmonitor';
+
+    }
 
   }
 

@@ -1,70 +1,85 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:video_player_win/video_player_win.dart';
+import 'package:second_monitor/Service/logger.dart';
 
 class VideoManager {
-  VideoPlayerController? _videoController;
+  late WinVideoPlayerController _videoController;
   bool _isInitialized = false;
+  bool _isDisposed = false;
 
   Future<void> initialize({
     required bool isVideoFromInternet,
     required String videoSource,
   }) async {
-    if (videoSource.isEmpty) return;
-
     try {
-      // Освобождаем предыдущий контроллер
-      await dispose();
-
-      // Создаем новый контроллер
-      _videoController = isVideoFromInternet
-          ? VideoPlayerController.networkUrl(Uri.parse(videoSource))
-          : VideoPlayerController.file(File(videoSource));
-
-      // Инициализируем контроллер
-      await _videoController!.initialize();
+      log('Starting video initialization: $videoSource');
       
-      // Только после успешной инициализации настраиваем параметры
-      if (_videoController != null && _videoController!.value.isInitialized) {
-        await _videoController!.setLooping(true);
-        await _videoController!.setVolume(0.0);
-        _isInitialized = true;
-        // Автоматически начинаем воспроизведение
-        await _videoController!.play();
+      if (_isInitialized) {
+        await dispose();
       }
+
+      if (!isVideoFromInternet) {
+        final file = File(videoSource);
+        if (!await file.exists()) {
+          log('Video file not found: $videoSource');
+          return;
+        }
+      }
+
+      _videoController = isVideoFromInternet 
+          ? WinVideoPlayerController.network(videoSource)
+          : WinVideoPlayerController.file(File(videoSource));
+
+      await _videoController.initialize();
+      _isInitialized = true;
+      _isDisposed = false;
+
+      // Настройка воспроизведения
+      await _videoController.setLooping(true);
+      await _videoController.setVolume(0.0);
+      
+      log('Video initialized successfully');
+      play();
+
     } catch (e) {
-      print('Error initializing video: $e');
+      log('Error in video initialization: $e');
       _isInitialized = false;
     }
   }
 
+  Widget buildVideoPlayer() {
+    if (!_isInitialized) {
+      return Container(color: Colors.black);
+    }
+
+    return AspectRatio(
+      aspectRatio: _videoController.value.aspectRatio,
+      child: WinVideoPlayer(_videoController),
+    );
+  }
+
   void play() {
-    if (_isInitialized && _videoController != null) {
-      _videoController!.play();
+    if (_isInitialized) {
+      _videoController.play();
     }
   }
 
   void pause() {
-    if (_isInitialized && _videoController != null) {
-      _videoController!.pause();
+    if (_isInitialized) {
+      _videoController.pause();
     }
-  }
-
-  Widget buildVideoPlayer() {
-    if (!_isInitialized || _videoController == null) {
-      return const SizedBox.shrink();
-    }
-    return VideoPlayer(_videoController!);  // Убрали AspectRatio для полноэкранного отображения
   }
 
   Future<void> dispose() async {
-    if (_videoController != null) {
-      await _videoController!.dispose();
-      _videoController = null;
+    _isDisposed = true;
+    if (_isInitialized) {
+      await _videoController.dispose();
       _isInitialized = false;
     }
   }
 
   bool get isInitialized => _isInitialized;
+  WinVideoPlayerController get controller => _videoController;
 }

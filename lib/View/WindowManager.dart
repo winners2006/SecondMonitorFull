@@ -11,12 +11,11 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'package:flutter/rendering.dart';
 import 'package:second_monitor/Service/FontManager.dart';
 
 // Окно настроек приложения
 class SettingsWindow extends StatefulWidget {
-  const SettingsWindow({Key? key}) : super(key: key);
+  const SettingsWindow({super.key});
 
   @override
   _SettingsWindowState createState() => _SettingsWindowState();
@@ -145,9 +144,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   int webSocketPort = 4002;
   int httpPort = 4001;
 
-  late VideoManager _videoManager;
-  late VideoManager _sideAdvertVideoManager;
-  String selectedResolution = '1920x1080';
+  String selectedResolution = '1024x768';
 
   @override
   void initState() {
@@ -223,6 +220,56 @@ class _SettingsWindowState extends State<SettingsWindow> {
 
   // Сохранение настроек в хранилище
   Future<void> _saveSettings() async {
+    // Обновляем настройки перед сохранением
+    settings = AppSettings(
+      isFullScreen: isFullScreen,
+      videoFilePath: videoFilePath,
+      videoUrl: videoUrl,
+      isVideoFromInternet: isVideoFromInternet,
+      showLoyaltyWidget: showLoyaltyWidget,
+      backgroundColor: backgroundColor,
+      borderColor: borderColor,
+      backgroundImagePath: backgroundImagePath,
+      useBackgroundImage: useBackgroundImage,
+      logoPath: logoPath,
+      showAdvertWithoutSales: showAdvertWithoutSales,
+      showSideAdvert: showSideAdvert,
+      sideAdvertVideoPath: sideAdvertVideoPath,
+      isSideAdvertFromInternet: isSideAdvertFromInternet,
+      sideAdvertVideoUrl: sideAdvertVideoUrl,
+      widgetPositions: widgetPositions,
+      logoPosition: logoPosition,
+      selectedResolution: selectedResolution,
+      autoStart: autoStart,
+      useInactivityTimer: useInactivityTimer,
+      inactivityTimeout: inactivityTimeout,
+      webSocketUrl: webSocketUrl,
+      httpUrl: httpUrl,
+      isVersion85: isVersion85,
+      webSocketPort: webSocketPort,
+      httpPort: httpPort,
+      loyaltyWidgetColor: settings.loyaltyWidgetColor,
+      paymentWidgetColor: settings.paymentWidgetColor,
+      summaryWidgetColor: settings.summaryWidgetColor,
+      itemsWidgetColor: settings.itemsWidgetColor,
+      loyaltyFontSize: settings.loyaltyFontSize,
+      paymentFontSize: settings.paymentFontSize,
+      summaryFontSize: settings.summaryFontSize,
+      itemsFontSize: settings.itemsFontSize,
+      loyaltyFontColor: settings.loyaltyFontColor,
+      paymentFontColor: settings.paymentFontColor,
+      summaryFontColor: settings.summaryFontColor,
+      itemsFontColor: settings.itemsFontColor,
+      customFontPath: settings.customFontPath,
+      fontFamily: settings.fontFamily,
+      showLogo: showLogo,
+      showPaymentQR: showPaymentQR,
+      showSummary: showSummary,
+      advertVideoPath: settings.advertVideoPath,
+      advertVideoUrl: settings.advertVideoUrl,
+      isAdvertFromInternet: settings.isAdvertFromInternet,
+    );
+
     await settings.saveSettings();
   }
 
@@ -372,7 +419,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
             onPressed: () {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LaunchWindow()),
+                MaterialPageRoute(builder: (context) => const LaunchWindow()),
               );
             },
           ),
@@ -1858,7 +1905,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       sideAdvertVideoPath: sideAdvertVideoPath ?? settings.sideAdvertVideoPath,
       isSideAdvertFromInternet: isSideAdvertFromInternet ?? settings.isSideAdvertFromInternet,
       sideAdvertVideoUrl: sideAdvertVideoUrl ?? settings.sideAdvertVideoUrl,
-      widgetPositions: settings.widgetPositions,
+      widgetPositions: widgetPositions,
       logoPosition: settings.logoPosition,
       selectedResolution: selectedResolution,
       autoStart: settings.autoStart,
@@ -1883,14 +1930,21 @@ class _SettingsWindowState extends State<SettingsWindow> {
       itemsFontColor: itemsFontColor ?? settings.itemsFontColor,
       customFontPath: customFontPath ?? settings.customFontPath,
       fontFamily: fontFamily ?? settings.fontFamily,
+      showLogo: settings.showLogo,
+      showPaymentQR: settings.showPaymentQR,
+      showSummary: settings.showSummary,
+      advertVideoPath: settings.advertVideoPath,
+      advertVideoUrl: settings.advertVideoUrl,
+      isAdvertFromInternet: settings.isAdvertFromInternet,
     );
 
-    newSettings.saveSettings(); // Сохраняем настройки
+    newSettings.saveSettings();
+    
     return newSettings;
   }
 
   double _getScale() {
-    final selectedSize = const Size(1920, 1080); // Используем фиксированное разрешение
+    const selectedSize = Size(1920, 1080); // Используем фиксированное разрешение
     return MediaQuery.of(context).size.width * 0.5 / selectedSize.width;
   }
 }

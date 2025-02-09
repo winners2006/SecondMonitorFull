@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:second_monitor/Service/logger.dart';
 
 class FontManager {
   static int _fontCounter = 0;
@@ -28,7 +29,7 @@ class FontManager {
         fontFamily: fontName,
       );
     } catch (e) {
-      print('Error loading font: $e');
+      log('Error loading font: $e');
       return baseStyle;
     }
   }

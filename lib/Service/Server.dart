@@ -27,7 +27,7 @@ class Server {
   HttpServer? _wsServer;
 
   Server() {
-    print('Server instance created');
+    log('Server instance created');
   }
 
   /// Устанавливает режим совместимости с 1С 8.5
@@ -43,14 +43,14 @@ class Server {
   /// [port] - порт для прослушивания (например, 4001)
   Future<void> startServer(String host, int port) async {
     if (_isVersion85) {
-      print('HTTP server disabled in 1C 8.5 mode');
+      log('HTTP server disabled in 1C 8.5 mode');
       return;
     }
 
     try {
       // Запускаем HTTP сервер
       _server = await HttpServer.bind(host, port);
-      print('HTTP server started on $host:$port');
+      log('HTTP server started on $host:$port');
 
       // Запускаем WebSocket сервер
       _wsServer = await HttpServer.bind(
@@ -58,7 +58,7 @@ class Server {
         4002,
         shared: true  // Добавляем флаг shared
       );
-      print('WebSocket server started on port 4002');
+      log('WebSocket server started on port 4002');
 
       // Обработка HTTP запросов
       _server!.listen(_handleRequest);
@@ -66,15 +66,15 @@ class Server {
       // Обработка WebSocket подключений
       _wsServer!.listen((request) async {
         if (WebSocketTransformer.isUpgradeRequest(request)) {
-          print('Received WebSocket upgrade request');
+          log('Received WebSocket upgrade request');
           final socket = await WebSocketTransformer.upgrade(request);
-          print('WebSocket client connected');
+          log('WebSocket client connected');
           _sendJsonData(socket);
         }
       });
 
     } catch (e) {
-      print('Error starting servers: $e');
+      log('Error starting servers: $e');
     }
   }
 
@@ -85,15 +85,15 @@ class Server {
     try {
       if (request.method == 'POST') {
         final content = await utf8.decoder.bind(request).join();
-        print('Raw POST content: $content');
+        log('Raw POST content: $content');
         
         // Проверяем и форматируем JSON перед сохранением
         try {
           var jsonData = jsonDecode(content); // Проверяем, что это валидный JSON
           receivedDataFrom1C = jsonEncode(jsonData); // Переформатируем для гарантии чистоты
-          print('Formatted JSON: $receivedDataFrom1C');
+          log('Formatted JSON: $receivedDataFrom1C');
         } catch (e) {
-          print('Invalid JSON received: $e');
+          log('Invalid JSON received: $e');
           throw 'Invalid JSON format';
         }
       }
@@ -103,7 +103,7 @@ class Server {
         ..write('OK')
         ..close();
     } catch (e) {
-      print('Request handling error: $e');
+      log('Request handling error: $e');
       request.response
         ..statusCode = HttpStatus.internalServerError
         ..write('Error: $e')
