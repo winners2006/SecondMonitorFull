@@ -12,9 +12,25 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:second_monitor/Service/FontManager.dart';
+import 'package:window_manager/window_manager.dart';
 
 // Окно настроек приложения
 class SettingsWindow extends StatefulWidget {
+  static Future<void> showFullscreen(BuildContext context) async {
+    await windowManager.waitUntilReadyToShow();
+    await windowManager.setFullScreen(true);
+    await windowManager.show();
+    
+    if (context.mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const SettingsWindow(),
+          fullscreenDialog: true, // Важный параметр
+        ),
+      );
+    }
+  }
+
   const SettingsWindow({super.key});
 
   @override
@@ -23,7 +39,7 @@ class SettingsWindow extends StatefulWidget {
 
 class _SettingsWindowState extends State<SettingsWindow> {
   AppSettings settings = AppSettings(
-    isFullScreen: false,
+    
     videoFilePath: '',
     videoUrl: '',
     isVideoFromInternet: true,
@@ -60,7 +76,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
   );
 
   // Базовые настройки
-  bool isFullScreen = false;
   bool autoStart = false;
   bool useInactivityTimer = true;
   int inactivityTimeout = 50;
@@ -130,7 +145,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
     ],
   ];
 
-  Size previewSize = const Size(1280, 1024); // Размер по умолчанию
+  final Size selectedSize = const Size(1920, 1080);
+  Size previewSize = const Size(1280, 1024);
 
   // В классе _SettingsWindowState добавим новые переменные
   bool showLogo = true;
@@ -145,6 +161,59 @@ class _SettingsWindowState extends State<SettingsWindow> {
   int httpPort = 4001;
 
   String selectedResolution = '1024x768';
+
+  // Расстояние, на котором виджеты будут примагничиваться
+  static const double snapDistance = 10.0;
+
+  // Проверяет, близки ли значения для примагничивания
+  bool _isSnapping(double value1, double value2) {
+    return (value1 - value2).abs() < snapDistance;
+  }
+
+  double lerp(double start, double end, double t) {
+    return start + (end - start) * t;
+  }
+
+  double _findSnapPosition(double currentValue, List<double> snapValues) {
+    for (final snapValue in snapValues) {
+      final distance = (currentValue - snapValue).abs();
+      if (distance < snapDistance) {
+        final t = distance / snapDistance;
+        return lerp(snapValue, currentValue, t);
+      }
+    }
+    return currentValue;
+  }
+
+  // Получает все возможные позиции для примагничивания
+  List<double> _getSnapPositions(String currentType, bool isHorizontal) {
+    List<double> positions = [];
+    
+    widgetPositions.forEach((type, pos) {
+      if (type != currentType) {
+        if (isHorizontal) {
+          // Добавляем левые и правые края
+          positions.add(pos['x']!);
+          positions.add(pos['x']! + pos['w']!);
+        } else {
+          // Добавляем верхние и нижние края
+          positions.add(pos['y']!);
+          positions.add(pos['y']! + pos['h']!);
+        }
+      }
+    });
+    
+    // Добавляем края экрана
+    if (isHorizontal) {
+      positions.add(0);
+      positions.add(selectedSize.width);
+    } else {
+      positions.add(0);
+      positions.add(selectedSize.height);
+    }
+    
+    return positions;
+  }
 
   @override
   void initState() {
@@ -176,7 +245,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
   // Загрузка настроек из хранилища
   void _loadSettings() async {
     setState(() {
-      isFullScreen = settings.isFullScreen;
       videoFilePath = settings.videoFilePath;
       videoUrl = settings.videoUrl;
       isVideoFromInternet = settings.isVideoFromInternet;
@@ -222,7 +290,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Future<void> _saveSettings() async {
     // Обновляем настройки перед сохранением
     settings = AppSettings(
-      isFullScreen: isFullScreen,
+     
       videoFilePath: videoFilePath,
       videoUrl: videoUrl,
       isVideoFromInternet: isVideoFromInternet,
@@ -333,7 +401,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       MaterialPageRoute(
         builder: (context) => SecondMonitor(
           settings: AppSettings(
-            isFullScreen: isFullScreen,
+            
             videoFilePath: videoFilePath,
             videoUrl: videoUrl,
             isVideoFromInternet: isVideoFromInternet,
@@ -456,10 +524,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
         SwitchListTile(
                             secondary: const Icon(Icons.fullscreen),
                             title: const Text('Полноэкранный режим'),
-                            value: isFullScreen,
+                            value: false,
           onChanged: (value) {
             setState(() {
-                                isFullScreen = value;
+                                // isFullScreen = value;
             });
             _saveSettings();
                             },
@@ -1171,147 +1239,192 @@ class _SettingsWindowState extends State<SettingsWindow> {
       if (type == 'summary' && !showSummary) continue;
       if (type == 'sideAdvert' && !showSideAdvert) continue;
       
-      widgets.add(_buildScaledWidget(type, selectedSize));
+      widgets.add(_buildPreviewWidget(type, scale));
     }
     
     return widgets;
   }
 
-  Widget _buildScaledWidget(String type, Size selectedSize) {
-    final position = widgetPositions[type];
-    if (position == null) return const SizedBox.shrink();
-
-    final scale = _getScale();
-
-    // Определяем цвет для каждого типа виджета
-    Color widgetColor;
-    switch (type) {
-      case 'loyalty':
-        widgetColor = settings.loyaltyWidgetColor;
-        break;
-      case 'payment':
-        widgetColor = settings.paymentWidgetColor;
-        break;
-      case 'summary':
-        widgetColor = settings.summaryWidgetColor;
-        break;
-      case 'items':
-        widgetColor = settings.itemsWidgetColor;
-        break;
-      default:
-        widgetColor = Colors.white;
-    }
+  Widget _buildPreviewWidget(String type, double scale) {
+    final pos = widgetPositions[type];
+    if (pos == null) return const SizedBox.shrink();
 
     return Positioned(
-      left: position['x']! * scale,
-      top: position['y']! * scale,
-      child: GestureDetector(
-        onPanStart: (details) {
-          setState(() {
-            widgetPositions[type] = Map<String, double>.from(position);
-          });
-        },
-        onPanUpdate: (details) {
-          final maxX = selectedSize.width - position['w']!;
-          final maxY = selectedSize.height - position['h']!;
-          
-          final newX = (position['x']! + details.delta.dx / scale)
-              .clamp(0.0, maxX > 0 ? maxX : 0.0);
-          final newY = (position['y']! + details.delta.dy / scale)
-              .clamp(0.0, maxY > 0 ? maxY : 0.0);
+      left: pos['x']! * scale,
+      top: pos['y']! * scale,
+      width: pos['w']! * scale,
+      height: pos['h']! * scale,
+      child: MouseRegion(
+        child: Stack(
+          children: [
+            GestureDetector(
+              onPanUpdate: (details) {
+                double newX = pos['x']! + details.delta.dx / scale;
+                double newY = pos['y']! + details.delta.dy / scale;
 
-          setState(() {
-            position['x'] = newX;
-            position['y'] = newY;
-          });
-        },
-        onPanEnd: (_) => _saveSettings(),
-        child: Container(
-          width: position['w']! * scale,
-          height: position['h']! * scale,
-          decoration: BoxDecoration(
-            color: widgetColor, // Используем выбранный цвет
-            border: Border.all(color: settings.borderColor, width: 1),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 5,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (type == 'sideAdvert') ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        _getWidgetTitle(type),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ],
+                // Получаем позиции для примагничивания только если скорость перемещения не слишком высокая
+                final speed = details.delta.distance;
+                if (speed < 10) { // Порог скорости для активации примагничивания
+                  final horizontalSnaps = _getSnapPositions(type, true);
+                  final verticalSnaps = _getSnapPositions(type, false);
+
+                  newX = _findSnapPosition(newX, horizontalSnaps);
+                  final rightEdge = newX + pos['w']!;
+                  final snappedRight = _findSnapPosition(rightEdge, horizontalSnaps);
+                  if (rightEdge != snappedRight) {
+                    newX = snappedRight - pos['w']!;
+                  }
+
+                  newY = _findSnapPosition(newY, verticalSnaps);
+                  final bottomEdge = newY + pos['h']!;
+                  final snappedBottom = _findSnapPosition(bottomEdge, verticalSnaps);
+                  if (bottomEdge != snappedBottom) {
+                    newY = snappedBottom - pos['h']!;
+                  }
+                }
+
+                // Ограничиваем движение границами экрана
+                newX = newX.clamp(0.0, selectedSize.width - pos['w']!);
+                newY = newY.clamp(0.0, selectedSize.height - pos['h']!);
+
+                setState(() {
+                  pos['x'] = newX;
+                  pos['y'] = newY;
+                });
+                _saveSettings();
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blue),
+                  color: _getWidgetColor(type).withOpacity(0.3),
                 ),
               ),
-              ...buildResizeHandles(type, selectedSize),
-            ],
-          ),
+            ),
+            // Подпись
+            Positioned(
+              left: 5,
+              top: 5,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _getWidgetTitle(type),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+            // Маркеры изменения размера
+            _buildResizeHandle(pos, scale, 'right'),
+            _buildResizeHandle(pos, scale, 'bottom'),
+            _buildResizeHandle(pos, scale, 'corner'),
+          ],
         ),
       ),
     );
   }
 
-  List<Widget> buildResizeHandles(String type, Size selectedSize) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return [
-      Positioned(
-        right: 0,
-        bottom: 0,
-        child: GestureDetector(
-          onPanUpdate: (details) {
-            final currentPosition = widgetPositions[type];
-            if (currentPosition == null) return;
-
-            final newW = ((currentPosition['w'] ?? 200.0) + details.delta.dx)
-                .clamp(100.0, screenWidth - (currentPosition['x'] ?? 0.0));
-            final newH = ((currentPosition['h'] ?? 150.0) + details.delta.dy)
-                .clamp(100.0, screenHeight - (currentPosition['y'] ?? 0.0));
-
-            if (!_checkWidgetOverlap(
-              type,
-              currentPosition['x'] ?? 0.0,
-              currentPosition['y'] ?? 0.0,
-              newW,
-              newH
-            )) {
-              setState(() {
-                widgetPositions[type] = {
-                  'x': currentPosition['x'] ?? 0.0,
-                  'y': currentPosition['y'] ?? 0.0,
-                  'w': newW,
-                  'h': newH,
-                };
-              });
-            }
-          },
-          onPanEnd: (_) => _saveSettings(),
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(10),
+  Widget _buildResizeHandle(Map<String, double> pos, double scale, String type) {
+    switch (type) {
+      case 'right':
+        return Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeLeftRight,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                final newW = (pos['w']! + details.delta.dx / scale)
+                    .clamp(100.0, selectedSize.width - pos['x']!);
+                setState(() {
+                  pos['w'] = newW;
+                });
+                _saveSettings();
+              },
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.5),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    ];
+        );
+      case 'bottom':
+        return Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpDown,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                final newH = (pos['h']! + details.delta.dy / scale)
+                    .clamp(100.0, selectedSize.height - pos['y']!);
+                setState(() {
+                  pos['h'] = newH;
+                });
+                _saveSettings();
+              },
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ),
+        );
+      case 'corner':
+        return Positioned(
+          right: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeDownRight,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                final newW = (pos['w']! + details.delta.dx / scale)
+                    .clamp(100.0, selectedSize.width - pos['x']!);
+                final newH = (pos['h']! + details.delta.dy / scale)
+                    .clamp(100.0, selectedSize.height - pos['y']!);
+                setState(() {
+                  pos['w'] = newW;
+                  pos['h'] = newH;
+                });
+                _saveSettings();
+              },
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Color _getWidgetColor(String type) {
+    switch (type) {
+      case 'loyalty':
+        return settings.loyaltyWidgetColor;
+      case 'payment':
+        return settings.paymentWidgetColor;
+      case 'summary':
+        return settings.summaryWidgetColor;
+      case 'items':
+        return settings.itemsWidgetColor;
+      default:
+        return Colors.white;
+    }
   }
 
   String _getWidgetTitle(String type) {
@@ -1341,7 +1454,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
 
   void _resetSettings() {
     setState(() {
-      isFullScreen = false;
       videoFilePath = '';
       videoUrl = '';
       isVideoFromInternet = true;
@@ -1371,7 +1483,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Future<void> _exportSettings() async {
     try {
       final settings = {
-        'isFullScreen': isFullScreen,
         'videoFilePath': videoFilePath,
         'videoUrl': videoUrl,
         'isVideoFromInternet': isVideoFromInternet,
@@ -1435,7 +1546,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
         final settings = jsonDecode(jsonString);
 
         setState(() {
-          isFullScreen = settings['isFullScreen'] ?? false;
           videoFilePath = settings['videoFilePath'] ?? '';
           videoUrl = settings['videoUrl'] ?? '';
           isVideoFromInternet = settings['isVideoFromInternet'] ?? true;
@@ -1890,7 +2000,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
     String? fontFamily,
   }) {
     final newSettings = AppSettings(
-      isFullScreen: settings.isFullScreen,
+      
       videoFilePath: settings.videoFilePath,
       videoUrl: settings.videoUrl,
       isVideoFromInternet: settings.isVideoFromInternet,
@@ -1989,7 +2099,7 @@ class _VideoPreviewState extends State<_VideoPreview> {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: _videoManager.buildVideoPlayer(),
+      child: _videoManager.buildVideoPlayer(context),
     );
   }
 }

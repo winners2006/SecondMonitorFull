@@ -14,13 +14,11 @@ import 'package:second_monitor/Service/logger.dart';
 
 class AppSettings {
 
-  final bool isFullScreen;
+  String videoFilePath = '';
 
-  final String videoFilePath;
+  String videoUrl = '';
 
-  final String videoUrl;
-
-  final bool isVideoFromInternet;
+  bool isVideoFromInternet = true;
 
   final bool showLoyaltyWidget;
 
@@ -114,13 +112,11 @@ class AppSettings {
 
   AppSettings({
 
-    required this.isFullScreen,
+    String videoFilePath = '',
 
-    required this.videoFilePath,
+    String videoUrl = '',
 
-    required this.videoUrl,
-
-    required this.isVideoFromInternet,
+    bool isVideoFromInternet = true,
 
     required this.showLoyaltyWidget,
 
@@ -220,7 +216,15 @@ class AppSettings {
 
     this.fontFamily = '',
 
-  });
+  }) {
+
+    this.videoFilePath = videoFilePath;
+
+    this.videoUrl = videoUrl;
+
+    this.isVideoFromInternet = isVideoFromInternet;
+
+  }
 
 
 
@@ -255,8 +259,6 @@ class AppSettings {
     // Возвращаем настройки по умолчанию, если не удалось загрузить
 
     return AppSettings(
-
-      isFullScreen: false,
 
       videoFilePath: '',
 
@@ -533,8 +535,6 @@ class AppSettings {
 
     return AppSettings(
 
-      isFullScreen: json['isFullScreen'] ?? false,
-
       videoFilePath: json['videoFilePath'] ?? '',
 
       videoUrl: json['videoUrl'] ?? '',
@@ -638,8 +638,6 @@ class AppSettings {
   Map<String, dynamic> toJson() {
 
     return {
-
-      'isFullScreen': isFullScreen,
 
       'videoFilePath': videoFilePath,
 
@@ -745,8 +743,6 @@ class AppSettings {
 
     String? customFontPath,
 
-    bool? isFullScreen,
-
     String? videoFilePath,
 
     String? videoUrl,
@@ -807,13 +803,13 @@ class AppSettings {
 
     String? fontFamily,
 
+    String? selectedResolution,
+
   }) {
 
     return AppSettings(
 
       customFontPath: customFontPath ?? this.customFontPath,
-
-      isFullScreen: isFullScreen ?? this.isFullScreen,
 
       videoFilePath: videoFilePath ?? this.videoFilePath,
 
@@ -902,6 +898,8 @@ class AppSettings {
       isAdvertFromInternet: isAdvertFromInternet,
 
       fontFamily: fontFamily ?? this.fontFamily,
+
+      selectedResolution: selectedResolution ?? this.selectedResolution,
 
     );
 

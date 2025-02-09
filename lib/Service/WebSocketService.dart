@@ -14,12 +14,12 @@ import 'dart:async';
 /// ```dart
 /// final ws = WebSocketService();
 /// ws.setOnDataReceived((message) {
-///   log('Получены данные: $message');
+///   print('Получены данные: $message');
 /// });
 /// ws.connect('ws://localhost:4002/ws/');
 /// ```
 class WebSocketService {
-  WebSocket? _socket;
+  WebSocket? _webSocket;
   late Function(dynamic message) _onDataReceived;
   bool _isConnected = false;
   Timer? _reconnectTimer;
@@ -37,69 +37,62 @@ class WebSocketService {
   /// [url] - адрес WebSocket-сервера (например, 'ws://localhost:4002/ws/')
   /// При обрыве соединения автоматически пытается переподключиться
   Future<void> connect(String url) async {
+    if (_isConnected) return;
+
     try {
-      log('Attempting to connect to WebSocket at $url');
-      
-      if (_socket != null) {
-        await _socket!.close();
-        _socket = null;
-      }
-      
-      _socket = await WebSocket.connect(url).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          log('WebSocket connection timeout');
-          throw TimeoutException('Connection took too long');
-        },
-      );
-      
+      print('Attempting to connect to WebSocket at $url');
+      _webSocket = await WebSocket.connect(url);
       _isConnected = true;
-      log('WebSocket client connected');
-      
-      _socket!.listen(
-        (data) {
-          // Обработка входящих сообщений
-          log('Received WebSocket message: $data');
-          try {
-            _onDataReceived(data);
-          } catch (e) {
-            log('WebSocketService: Error processing message: $e');
-          }
-        },
-        onError: (error) {
-          log('WebSocket error: $error');
-          _handleDisconnect();
-        },
-        onDone: () {
-          log('WebSocket connection closed');
-          _handleDisconnect();
-        },
-        cancelOnError: false,
-      );
-      
+      _listenToMessages();
+      _reconnectTimer?.cancel();
+      print('WebSocket connected successfully');
     } catch (e) {
-      log('WebSocket connection error: $e');
-      _handleDisconnect();
+      print('WebSocket connection error: $e');
+      _scheduleReconnect(url);
     }
   }
 
-  void _handleDisconnect() {
-    _isConnected = false;
-    _socket = null;
-    
-    // Запускаем таймер переподключения
+  /// Планирует повторное подключение при обрыве связи
+  /// 
+  /// [url] - адрес для переподключения
+  /// Пытается переподключиться каждые 5 секунд
+  void _scheduleReconnect(String url) {
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(_reconnectDelay, () {
-      if (!_isConnected) {
-        connect('ws://localhost:4002/ws/');
-      }
-    });
+    _reconnectTimer = Timer(_reconnectDelay, () => connect(url));
   }
 
-  void dispose() {
+  /// Настраивает прослушивание входящих сообщений
+  /// 
+  /// Обрабатывает входящие сообщения, ошибки и закрытие соединения
+  void _listenToMessages() {
+    _webSocket?.listen(
+      (data) {
+        print('WebSocket received data: $data');
+        try {
+          _onDataReceived(data);
+        } catch (e) {
+          log('WebSocketService: Error processing message: $e');
+        }
+      },
+      onError: (error) => {
+        print('WebSocket error: $error'),
+        log('WebSocketService: WebSocket error: $error'),
+        _isConnected = false
+      },
+      onDone: () => {
+        print('WebSocket connection closed'),
+        log('WebSocketService: WebSocket connection closed'),
+        _isConnected = false
+      },
+    );
+  }
+
+  /// Закрывает WebSocket-соединение
+  /// 
+  /// Отменяет попытки переподключения и закрывает текущее соединение
+  void disconnect() {
     _reconnectTimer?.cancel();
-    _socket?.close();
-    _socket = null;
+    _webSocket?.close();
     _isConnected = false;
   }
 

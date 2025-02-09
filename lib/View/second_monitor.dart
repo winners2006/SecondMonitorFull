@@ -37,8 +37,10 @@ import 'package:second_monitor/View/WindowManager.dart';
 import 'package:second_monitor/View/LaunchWindow.dart';
 
 import 'package:second_monitor/Model/Message1C.dart';
-import 'package:video_player_win/video_player_win.dart';
-import 'package:second_monitor/Service/logger.dart';
+
+import 'package:flutter/rendering.dart';
+
+import 'package:second_monitor/Service/FontManager.dart';
 
 
 
@@ -366,7 +368,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   bool isLoading = true;  // Флаг загрузки
 
-  Size selectedSize = const Size(1280, 1024); // Размер по умолчанию
+  late Size selectedSize; // Убираем значение по умолчанию
 
   late WebSocketService _webSocketService;  // Сервис WebSocket
 
@@ -380,9 +382,9 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   PaymentQRCode? _paymentQRCode;  // QR-код для оплаты
 
-  late VideoManager _videoManager;  // Менеджер видео
+  final VideoManager _videoManager = VideoManager();  // Менеджер видео
 
-  late VideoManager _sideAdvertVideoManager;  // Менеджер боковой рекламы
+  final VideoManager _sideAdvertVideoManager = VideoManager();  // Менеджер боковой рекламы
 
   final FocusNode _focusNode = FocusNode();
 
@@ -394,145 +396,113 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     super.initState();
 
-    
+    WidgetsBinding.instance.addObserver(this);
 
-    try {
+    _focusNode.requestFocus();
 
-      WidgetsBinding.instance.addObserver(this);
 
-      _focusNode.requestFocus();
 
+    settings = widget.settings ?? AppSettings(
 
+      videoFilePath: '',
 
-      settings = widget.settings ?? AppSettings(
+      videoUrl: '',
 
-        isFullScreen: false,
+      isVideoFromInternet: true,
 
-        videoFilePath: '',
+      showLoyaltyWidget: true,
 
-        videoUrl: '',
+      backgroundColor: Colors.white,
 
-        isVideoFromInternet: true,
+      borderColor: Colors.black,
 
-        showLoyaltyWidget: true,
+      backgroundImagePath: '',
 
-        backgroundColor: Colors.white,
+      useBackgroundImage: false,
 
-        borderColor: Colors.black,
+      logoPath: '',
 
-        backgroundImagePath: '',
+      showAdvertWithoutSales: false,
 
-        useBackgroundImage: false,
+      showSideAdvert: false,
 
-        logoPath: '',
+      sideAdvertVideoPath: '',
 
-        showAdvertWithoutSales: false,
+      isSideAdvertFromInternet: true,
 
-        showSideAdvert: false,
+      sideAdvertVideoUrl: '',
 
-        sideAdvertVideoPath: '',
+      widgetPositions: {
 
-        isSideAdvertFromInternet: true,
+        'loyalty': {'x': 0.0, 'y': 0.0, 'w': 150.0, 'h': 120.0},
 
-        sideAdvertVideoUrl: '',
+        'payment': {'x': 1130.0, 'y': 0.0, 'w': 150.0, 'h': 120.0},
 
-        widgetPositions: {
+        'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
 
-          'loyalty': {'x': 0.0, 'y': 0.0, 'w': 150.0, 'h': 120.0},
+        'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
 
-          'payment': {'x': 1130.0, 'y': 0.0, 'w': 150.0, 'h': 120.0},
+        'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
 
-          'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
+      },
 
-          'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
+      logoPosition: {
 
-          'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
+        'x': 10.0,
 
-        },
+        'y': 10.0,
 
-        logoPosition: {
+        'w': 100.0,
 
-          'x': 10.0,
+        'h': 50.0,
 
-          'y': 10.0,
+      },
 
-          'w': 100.0,
+      selectedResolution: '1920x1080',
 
-          'h': 50.0,
+      autoStart: false,
 
-        },
+      useInactivityTimer: true,
 
-        selectedResolution: '1920x1080',
+      inactivityTimeout: 50,
 
-        autoStart: false,
+      openSettingsHotkey: 'Ctrl + Shift + S',
 
-        useInactivityTimer: true,
+      closeMainWindowHotkey: 'Ctrl + Shift + L',
 
-        inactivityTimeout: 50,
+      loyaltyWidgetColor: Colors.white,
 
-        openSettingsHotkey: 'Ctrl + Shift + S',
+      paymentWidgetColor: Colors.white,
 
-        closeMainWindowHotkey: 'Ctrl + Shift + L',
+      summaryWidgetColor: Colors.white,
 
-        loyaltyWidgetColor: Colors.white,
+      itemsWidgetColor: Colors.white,
 
-        paymentWidgetColor: Colors.white,
+      customFontPath: '',
 
-        summaryWidgetColor: Colors.white,
+      loyaltyFontSize: 16.0,
 
-        itemsWidgetColor: Colors.white,
+      loyaltyFontColor: Colors.black,
 
-        customFontPath: '',
+      paymentFontSize: 16.0,
 
-        loyaltyFontSize: 16.0,
+      paymentFontColor: Colors.black,
 
-        loyaltyFontColor: Colors.black,
+      summaryFontSize: 16.0,
 
-        paymentFontSize: 16.0,
+      summaryFontColor: Colors.black,
 
-        paymentFontColor: Colors.black,
+      itemsFontSize: 16.0,
 
-        summaryFontSize: 16.0,
+      itemsFontColor: Colors.black,
 
-        summaryFontColor: Colors.black,
+      fontFamily: '',
 
-        itemsFontSize: 16.0,
+    );
 
-        itemsFontColor: Colors.black,
 
-        fontFamily: '',
 
-      );
-
-
-
-      if (widget.settings != null) {
-
-        final parts = settings.selectedResolution.split('x');
-
-        selectedSize = Size(
-
-          double.parse(parts[0]),
-
-          double.parse(parts[1])
-
-        );
-
-      }
-
-
-
-      getSecondMonitorSize().then((size) {
-
-        setState(() {
-
-          selectedSize = size;
-
-        });
-
-      });
-
-
+    _initScreenSize().then((_) {
 
       _server = Server();
 
@@ -543,46 +513,30 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
       _webSocketService = WebSocketService();
 
       _webSocketService.setOnDataReceived(_onDataReceived);
-      log('Starting services initialization');
-      _initializeServices().then((_) {
-        log('Services initialized successfully');
-        _initializeVideoServices();
-      }).catchError((e, stack) {
-        log('Error initializing services: $e');
-        log('Stack trace: $stack');
+
+      _webSocketService.connect('ws://localhost:4002/ws/');
+
+
+
+      _loadSettings().then((_) {
+
+        _initializeVideo();
+
+        _initializeSideAdvertVideo();
+
+        _initFullScreen();
+
       });
 
 
-      _videoManager = VideoManager();
-      _sideAdvertVideoManager = VideoManager();
 
-    } catch (e, stack) {
+      if (settings.customFontPath.isNotEmpty) {
 
-      log('Error in initState: $e');
+        _loadCustomFont();
 
-      log('Stack trace: $stack');
+      }
 
-    }
-
-  }
-
-
-
-  Future<void> _initializeServices() async {
-
-    try {
-
-      // Инициализация WebSocket
-
-      await _webSocketService.connect('ws://localhost:4002/ws/');
-
-    } catch (e) {
-
-      log('Error initializing services: $e');
-
-      // Продолжаем работу даже при ошибке подключения
-
-    }
+    });
 
   }
 
@@ -594,11 +548,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     settings = await AppSettings.loadSettings();  // Загрузка настроек
 
-    log('Loaded settings:');  // Отладочный вывод
+    print('Loaded settings:');  // Отладочный вывод
 
-    log('Open settings hotkey: ${settings.openSettingsHotkey}');
+    print('Open settings hotkey: ${settings.openSettingsHotkey}');
 
-    log('Close window hotkey: ${settings.closeMainWindowHotkey}');
+    print('Close window hotkey: ${settings.closeMainWindowHotkey}');
 
     // Получаем размеры из настроек
 
@@ -625,26 +579,14 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
   // Инициализация полноэкранного режима
 
   void _initFullScreen() async {
-    log('Initializing full screen');
-    await windowManager.ensureInitialized();  // Убедитесь, что менеджер окна инициализирован
 
-    final screenManager = ScreenManager();  // Инициализация менеджера экрана
-    log('Moving to second screen');
-    await screenManager.moveToSecondScreen();  // Перемещение на второй экран
+    await windowManager.ensureInitialized();
 
-    
+    final screenManager = ScreenManager();
 
-    if (settings.isFullScreen) {
-      log('Setting full screen');
-      await windowManager.setFullScreen(true);  // Установка полноэкранного режима
+    await screenManager.moveToSecondScreen();
 
-    } else {
-      log('Setting size');
-      await windowManager.setSize(selectedSize);  // Установка размера окна в соответствии с разрешением
-
-      await windowManager.center();  // Центрирование окна
-
-    }
+    await windowManager.setFullScreen(true); // Всегда устанавливаем полноэкранный режим
 
   }
 
@@ -653,53 +595,81 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
   // Инициализация видео
 
   void _initializeVideo() {
-    try {
-      log('Initializing video SM');
-      if (!settings.showAdvertWithoutSales) {
-        log('Video playback disabled in settings');
-        return;
-      }
 
-      // Отложенная инициализация
-      log('Delaying video initialization');
-      Future.delayed(const Duration(seconds: 2), () async {
-        if (!mounted) return;
-        log('Checking if mounted');
+    startTimerVideoReinit();
 
-        try {
-          log('Starting video initialization');
-          
-          // Проверяем существование файла для локального видео
-          if (!settings.isVideoFromInternet) {
-            final file = File(settings.videoFilePath);
-            if (!await file.exists()) {
-              log('Video file not found: ${settings.videoFilePath}');
-              return;
-            }
-          }
+    
 
-          // Инициализируем видео
-          log('Initializing video manager SM');
-          await _videoManager.initialize(
-            isVideoFromInternet: settings.isVideoFromInternet,
-            videoSource: settings.isVideoFromInternet ? settings.videoUrl : settings.videoFilePath,
-          );
+    // Инициализация основного видео
 
-          // Обновляем UI после успешной инициализации
-          log('Updating UI');
-          if (mounted) {
-            log('UI is mounted');
-            setState(() {});
-          }
+    if (settings.isVideoFromInternet) {
 
-        } catch (e) {
-          log('Error in video initialization: $e');
-        }
+      _videoManager.initialize(
+
+        isVideoFromInternet: true,
+
+        videoSource: settings.videoUrl,
+
+      ).then((_) {
+
+        setState(() {});
+
       });
 
-    } catch (e) {
-      log('Error in _initializeVideo: $e');
+    } else {
+
+      _videoManager.initialize(
+
+        isVideoFromInternet: false,
+
+        videoSource: settings.videoFilePath,
+
+      ).then((_) {
+
+        setState(() {});
+
+      });
+
     }
+
+
+
+    // Инициализация видео для рекламы
+
+    if (settings.showAdvertWithoutSales) {
+
+      if (settings.isAdvertFromInternet) {
+
+        _videoManager.initialize(
+
+          isVideoFromInternet: true,
+
+          videoSource: settings.advertVideoUrl,
+
+        ).then((_) {
+
+          setState(() {});
+
+        });
+
+      } else {
+
+        _videoManager.initialize(
+
+          isVideoFromInternet: false,
+
+          videoSource: settings.advertVideoPath,
+
+        ).then((_) {
+
+          setState(() {});
+
+        });
+
+      }
+
+    }
+
   }
 
 
@@ -707,55 +677,55 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
   // Инициализация боковой рекламы
 
   void _initializeSideAdvertVideo() {
-    try {
-      log('Initializing side advert video');
-      if (!settings.showSideAdvert) {
-        log('Side advert disabled in settings');
-        return;
+
+    if (settings.showSideAdvert) {
+
+      if (settings.isSideAdvertFromInternet) {
+
+        _sideAdvertVideoManager.initialize(
+
+          isVideoFromInternet: true,
+
+          videoSource: settings.sideAdvertVideoUrl,
+
+        ).then((_) {
+
+          setState(() {});  // Обновление состояния
+
+        });
+
+      } else {
+
+        _sideAdvertVideoManager.initialize(
+
+          isVideoFromInternet: false,
+
+          videoSource: settings.sideAdvertVideoPath,
+
+        ).then((_) {
+
+          setState(() {});  // Обновление состояния
+
+        });
 
       }
 
-      // Защита от падения в релизе
-      try {
-        log('Checking side video file availability...');
-        if (Platform.isWindows) {
-          log('Checking side video file availability...');
-          if (settings.sideAdvertVideoPath.isNotEmpty) {
-            final file = File(settings.sideAdvertVideoPath);
-            if (!file.existsSync()) {
-              log('Side video file not found: ${settings.sideAdvertVideoPath}');
-              return;
-            }
-            log('Side video file exists and accessible');
-          }
-        }
-      } catch (e) {
-        log('Error checking side video file: $e');
-        return;
-      }
-
-      // Отложенная инициализация
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
-
-        try {
-          log('Starting delayed side video initialization');
-          _sideAdvertVideoManager = VideoManager();
-          _sideAdvertVideoManager.initialize(
-            isVideoFromInternet: settings.isSideAdvertFromInternet,
-            videoSource: settings.isSideAdvertFromInternet ? settings.sideAdvertVideoUrl : settings.sideAdvertVideoPath,
-          ).catchError((error) {
-            log('Error in side video initialization: $error');
-          });
-        } catch (e) {
-          log('Error in delayed side initialization: $e');
-        }
-      });
-
-    } catch (e, stack) {
-      log('Fatal error in _initializeSideAdvertVideo: $e');
-      log('Stack trace: $stack');
     }
+
+  }
+
+
+
+  // Таймер для повторной инициализации видео
+
+  void startTimerVideoReinit() {
+
+    Timer.periodic(const Duration(hours: 5), (Timer timer) {
+
+      _initializeVideo();  // Повторная инициализация видео
+
+    });
+
   }
 
 
@@ -766,7 +736,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     try {
 
-      log('Raw message received: $message');
+      print('Raw message received: $message');
 
 
 
@@ -774,7 +744,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       if (cleanMessage.startsWith('{')) {
 
-        log('Attempting to parse JSON: $cleanMessage');
+        print('Attempting to parse JSON: $cleanMessage');
 
         var jsonData = jsonDecode(cleanMessage);
 
@@ -784,7 +754,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
           final message1C = Message1C.fromJson(jsonData);
 
-          log('Successfully parsed message: ${message1C.items.length} items');
+          print('Successfully parsed message: ${message1C.items.length} items');
 
           
 
@@ -818,17 +788,17 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       } else {
 
-        log('Received message is not a JSON object');
+        print('Received message is not a JSON object');
 
       }
 
     } catch (e, stack) {
 
-      log('Error processing message: $e');
+      print('Error processing message: $e');
 
-      log('Stack trace: $stack');
+      print('Stack trace: $stack');
 
-      log('Message that caused error: $message');
+      print('Message that caused error: $message');
 
     }
 
@@ -839,7 +809,6 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
   // Условие для показа видео
 
   bool _shouldShowVideo() {
-    log('Checking if video should be shown');
 
     return settings.showAdvertWithoutSales && 
 
@@ -853,75 +822,107 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   Widget build(BuildContext context) {
 
-    return Scaffold(
+    return RawKeyboardListener(
 
-      backgroundColor: Colors.black,
+      focusNode: _focusNode,
 
-      body: Stack(
+      autofocus: true,
 
-        children: [
+      onKey: (RawKeyEvent event) {
 
-          if (settings.showAdvertWithoutSales && _videoManager.isInitialized)
+        if (event is RawKeyDownEvent) {
 
-            Positioned.fill(
+          if (_isHotkeyMatch(event, settings.openSettingsHotkey)) {
 
-              child: _buildVideoPlayer(),
+            _openSettings();
 
-            ),
+          } else if (_isHotkeyMatch(event, settings.closeMainWindowHotkey)) {
 
-          RawKeyboardListener(
+            _closeMainWindowAndOpenLaunchWindow();
 
-            focusNode: _focusNode,
+          }
 
-            autofocus: true,
+        }
 
-            onKey: (RawKeyEvent event) {
+      },
 
-              if (event is RawKeyDownEvent) {
+      child: MaterialApp(
 
-                if (_isHotkeyMatch(event, settings.openSettingsHotkey)) {
+        debugShowCheckedModeBanner: false,
 
-                  _openSettings();
+        home: Scaffold(
 
-                } else if (_isHotkeyMatch(event, settings.closeMainWindowHotkey)) {
+          body: LayoutBuilder(
 
-                  _closeMainWindowAndOpenLaunchWindow();
+            builder: (context, constraints) {
 
-                }
+              return Container(
 
-              }
+                width: constraints.maxWidth,
 
+                height: constraints.maxHeight,
+
+                child: _shouldShowVideo()
+
+                  ? _videoManager.buildVideoPlayer(context)
+
+                  : Container(
+
+                      decoration: BoxDecoration(
+
+                        color: settings.useBackgroundImage ? null : settings.backgroundColor,
+
+                        image: settings.useBackgroundImage &&
+
+                                settings.backgroundImagePath.isNotEmpty &&
+
+                                File(settings.backgroundImagePath).existsSync()
+
+                            ? DecorationImage(
+
+                                image: FileImage(File(settings.backgroundImagePath)),
+
+                                fit: BoxFit.cover,
+
+                              )
+
+                            : null,
+
+                      ),
+
+                      child: Stack(
+
+                        children: [
+
+                          if (settings.showLogo)
+
+                            _buildLogo(1.0),
+
+                          _buildScaledWidget('items', settings, 1.0, 1.0),
+
+                          if (settings.showLoyaltyWidget)
+
+                            _buildScaledWidget('loyalty', settings, 1.0, 1.0),
+
+                          _buildScaledWidget('payment', settings, 1.0, 1.0),
+
+                          _buildScaledWidget('summary', settings, 1.0, 1.0),
+
+                          if (settings.showSideAdvert)
+
+                            _buildScaledSideAdvertVideo(1.0, 1.0),
+
+                        ],
+
+                      ),
+
+                    ),
+              );
             },
-
-            child: Stack(
-
-              children: [
-
-                if (settings.showLogo)
-
-                  _buildLogo(1.0),
-
-                _buildScaledWidget('items', settings, 1.0, 1.0),
-
-                if (settings.showLoyaltyWidget)
-
-                  _buildScaledWidget('loyalty', settings, 1.0, 1.0),
-
-                _buildScaledWidget('payment', settings, 1.0, 1.0),
-
-                _buildScaledWidget('summary', settings, 1.0, 1.0),
-
-                if (settings.showSideAdvert)
-
-                  _buildScaledSideAdvertVideo(1.0, 1.0),
-
-              ],
-
-            ),
 
           ),
 
-        ],
+        ),
 
       ),
 
@@ -1613,7 +1614,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
         clipBehavior: Clip.antiAlias,
 
-        child: _sideAdvertVideoManager.buildVideoPlayer(),
+        child: _sideAdvertVideoManager.buildVideoPlayer(context),
 
       ),
 
@@ -1623,15 +1624,9 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
 
 
-  void _openSettings() {
+  void _openSettings() async {
 
-    Navigator.push(
-
-      context,
-
-      MaterialPageRoute(builder: (context) => const SettingsWindow()),
-
-    );
+    await SettingsWindow.showFullscreen(context);
 
   }
 
@@ -1656,11 +1651,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
     if (hotkey.isEmpty) return false;
     
 
-    log('Checking hotkey match:');
+    print('Checking hotkey match:');
 
-    log('Hotkey from settings: $hotkey');
+    print('Hotkey from settings: $hotkey');
 
-    log('Pressed key: ${event.logicalKey.keyLabel}');
+    print('Pressed key: ${event.logicalKey.keyLabel}');
 
     
 
@@ -1704,11 +1699,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     
 
-    log('Modifiers match: $modifiersMatch');
+    print('Modifiers match: $modifiersMatch');
 
-    log('Key matches: $keyMatches');
+    print('Key matches: $keyMatches');
 
-    log('Letter key required: $letterKey');
+    print('Letter key required: $letterKey');
 
     
 
@@ -1730,7 +1725,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     _sideAdvertVideoManager.dispose();
 
-    _webSocketService.dispose();
+    _webSocketService.disconnect();
 
     _server.stopServer();
 
@@ -1825,24 +1820,40 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
       if (settings.customFontPath.isEmpty) return;
       
 
+      // Создаем базовый стиль
+
+      final baseStyle = TextStyle(
+
+        fontSize: settings.loyaltyFontSize,
+
+        color: settings.loyaltyFontColor,
+
+      );
+      
+
+      // Загружаем и применяем шрифт через FontManager
+
+      final newStyle = await FontManager.loadCustomFont(settings.customFontPath, baseStyle);
+      
+
       // Обновляем UI
 
       setState(() {
 
         settings = settings.copyWith(
 
-          customFontPath: 'CustomFont', // Используем имя, заданное в FontManager
+          fontFamily: newStyle.fontFamily ?? 'CustomFont',
 
         );
 
       });
       
 
-      log('Font loaded successfully: CustomFont');
+      print('Font loaded successfully: ${newStyle.fontFamily}');
 
     } catch (e) {
 
-      log('Error loading font: $e');
+      print('Error loading font: $e');
 
     }
 
@@ -1882,7 +1893,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     } catch (e) {
 
-      log('Error updating font: $e');
+      print('Error updating font: $e');
 
     }
 
@@ -1890,65 +1901,31 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
 
 
-  void _initializeVideoServices() {
-    try {
-      _loadSettings().then((_) {
-        _initializeVideo();
-        _initializeSideAdvertVideo();
-        _initFullScreen();
-      });
+  Future<void> _initScreenSize() async {
 
-      if (settings.customFontPath.isNotEmpty) {
-        _loadCustomFont();
-      }
-    } catch (e, stack) {
-      log('Error in _initializeVideoServices: $e');
-      log('Stack trace: $stack');
-    }
-  }
+    final screens = await ScreenRetriever.instance.getAllDisplays();
 
-  Widget _buildVideoPlayer() {
-    return _videoManager.isInitialized
-        ? Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Colors.black,
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _videoManager.controller.value.size.width,
-                height: _videoManager.controller.value.size.height,
-                child: WinVideoPlayer(_videoManager.controller),
-              ),
-            ),
-          )
-        : const Center(child: CircularProgressIndicator());
-  }
+    final targetScreen = screens.length > 1 ? screens[1] : screens[0];
+    
 
-}
+    setState(() {
 
+      selectedSize = Size(
 
+        targetScreen.size.width,
 
-// Получение размеров второго монитора
+        targetScreen.size.height,
 
-Future<Size> getSecondMonitorSize() async {
+      );
 
-  final screens = await ScreenRetriever.instance.getAllDisplays();
+      settings = settings.copyWith(
 
-  if (screens.length > 1) {
+        selectedResolution: '${selectedSize.width.toInt()}x${selectedSize.height.toInt()}'
 
-    // Если есть второй экран, возвращаем его размеры
+      );
 
-    final secondScreen = screens[1];
-
-    return Size(secondScreen.size.width, secondScreen.size.height);
+    });
 
   }
-
-  // Если второго экрана нет, возвращаем размеры первого
-
-  final firstScreen = screens[0];
-
-  return Size(firstScreen.size.width, firstScreen.size.height);
 
 }
