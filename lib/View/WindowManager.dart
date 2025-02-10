@@ -609,7 +609,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                           children: [
                             Icon(Icons.widgets),
                             SizedBox(width: 10),
-                            Text('Виджеты'),
+                            Text('Виджеты', style: TextStyle(fontWeight: FontWeight.bold)),
                           ],
                         ),
                         children: [
@@ -705,7 +705,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               children: [
                                 Icon(Icons.palette),
                                 SizedBox(width: 10),
-                                Text('Цвета виджетов'),
+                                Text('Цвета виджетов', style: TextStyle(fontWeight: FontWeight.bold)),
                               ],
                             ),
                             children: [
@@ -843,7 +843,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               children: [
                                 Icon(Icons.text_fields),
                                 SizedBox(width: 10),
-                                Text('Настройки шрифта'),
+                                Text('Настройки шрифта', style: TextStyle(fontWeight: FontWeight.bold)),
                               ],
                             ),
                             children: [
@@ -956,7 +956,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                           children: [
                             Icon(Icons.video_library),
                             SizedBox(width: 10),
-                            Text('Реклама'),
+                            Text('Реклама', style: TextStyle(fontWeight: FontWeight.bold)),
                           ],
                         ),
                         children: [
@@ -1422,6 +1422,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
         return settings.summaryWidgetColor;
       case 'items':
         return settings.itemsWidgetColor;
+      case 'sideAdvert':
+        return Colors.transparent;
       default:
         return Colors.white;
     }

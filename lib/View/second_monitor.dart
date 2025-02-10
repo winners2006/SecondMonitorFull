@@ -1610,8 +1610,6 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       child: Container(
 
-        decoration: const BoxDecoration(),
-
         clipBehavior: Clip.antiAlias,
 
         child: _sideAdvertVideoManager.buildVideoPlayer(context),
