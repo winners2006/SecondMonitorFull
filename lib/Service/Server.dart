@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:second_monitor/Service/logger.dart';
 import 'package:second_monitor/Service/AppSettings.dart';
 
+typedef DataCallback = void Function(dynamic data);
+
 /// Сервер для обработки HTTP-запросов от 1С.
 /// 
 /// Класс обеспечивает:
@@ -29,6 +31,8 @@ class Server {
 
   final List<WebSocket> _connectedClients = [];  // Добавляем список клиентов
   final AppSettings settings;  // Добавляем поле для настроек
+
+  DataCallback? _onDataReceived;
 
   Server(this.settings) {
     log('Server instance created');
@@ -103,30 +107,23 @@ class Server {
   /// 
   /// Принимает POST-запросы и сохраняет данные в [receivedDataFrom1C]
   void _handleRequest(HttpRequest request) async {
-    if (!_isVersion85) {  // Обрабатываем HTTP только если не в режиме 1С 8.5
+    if (request.method == 'POST') {
       try {
-        if (request.method == 'POST') {
-          final content = await utf8.decoder.bind(request).join();
-          log('Received HTTP POST data: $content');
-          
-          try {
-            var jsonData = jsonDecode(content);
-            receivedDataFrom1C = jsonEncode(jsonData);
-          } catch (e) {
-            log('Invalid JSON received via HTTP: $e');
-            throw 'Invalid JSON format';
-          }
+        final body = await utf8.decoder.bind(request).join();
+        log('Received HTTP POST data: $body');
+        
+        if (_onDataReceived != null) {
+          _onDataReceived!(body);
         }
-
+        
         request.response
           ..statusCode = HttpStatus.ok
           ..write('OK')
           ..close();
       } catch (e) {
-        log('HTTP request handling error: $e');
+        log('Error handling request: $e');
         request.response
           ..statusCode = HttpStatus.internalServerError
-          ..write('Error: $e')
           ..close();
       }
     }
@@ -151,5 +148,9 @@ class Server {
   void stopServer() {
     _server?.close();
     _wsServer?.close();
+  }
+
+  void setOnDataReceived(DataCallback callback) {
+    _onDataReceived = callback;
   }
 }

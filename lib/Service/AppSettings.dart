@@ -118,6 +118,12 @@ class AppSettings {
 
   final bool isDarkTheme;
 
+  final bool useAlternatingRowColors;
+
+  final Color evenRowColor;
+
+  final Color oddRowColor;
+
 
 
   AppSettings({
@@ -235,6 +241,12 @@ class AppSettings {
     required this.isSideAdvertContentFromInternet,
 
     this.isDarkTheme = false,
+
+    this.useAlternatingRowColors = false,
+
+    this.evenRowColor = const Color(0xFFFFFFFF),
+
+    this.oddRowColor = const Color(0xFFF5F5F5),
 
   }) {
 
@@ -407,6 +419,12 @@ class AppSettings {
       isSideAdvertContentFromInternet: false,
 
       isDarkTheme: false,
+
+      useAlternatingRowColors: false,
+
+      evenRowColor: const Color(0xFFFFFFFF),
+
+      oddRowColor: const Color(0xFFF5F5F5),
 
     );
 
@@ -699,6 +717,12 @@ class AppSettings {
 
       isDarkTheme: json['isDarkTheme'] ?? false,
 
+      useAlternatingRowColors: json['useAlternatingRowColors'] ?? false,
+
+      evenRowColor: Color(json['evenRowColor'] ?? 0xFFFFFFFF),
+
+      oddRowColor: Color(json['oddRowColor'] ?? 0xFFF5F5F5),
+
     );
 
   }
@@ -813,6 +837,12 @@ class AppSettings {
 
       'isDarkTheme': isDarkTheme,
 
+      'useAlternatingRowColors': useAlternatingRowColors,
+
+      'evenRowColor': evenRowColor.value,
+
+      'oddRowColor': oddRowColor.value,
+
     };
     
     log('Saving to JSON:');
@@ -901,6 +931,12 @@ class AppSettings {
     String? sideAdvertUrl,
 
     bool? isDarkTheme,
+
+    bool? useAlternatingRowColors,
+
+    Color? evenRowColor,
+
+    Color? oddRowColor,
 
   }) {
 
@@ -1011,6 +1047,12 @@ class AppSettings {
       sideAdvertUrl: sideAdvertUrl ?? this.sideAdvertUrl,
 
       isDarkTheme: isDarkTheme ?? this.isDarkTheme,
+
+      useAlternatingRowColors: useAlternatingRowColors ?? this.useAlternatingRowColors,
+
+      evenRowColor: evenRowColor ?? this.evenRowColor,
+
+      oddRowColor: oddRowColor ?? this.oddRowColor,
 
     );
 

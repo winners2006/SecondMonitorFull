@@ -347,6 +347,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
       //sideAdvertPath: _selectedVideoPath,        // Используем выбранный путь
       isSideAdvertContentFromInternet: false,
       sideAdvertUrl: sideAdvertVideoUrl,
+      useAlternatingRowColors: settings.useAlternatingRowColors,  // Добавляем параметры чередования строк
+      evenRowColor: settings.evenRowColor,
+      oddRowColor: settings.oddRowColor,
+      isDarkTheme: settings.isDarkTheme,  // Добавляем параметр темы
     );
 
     log('Before saving:');
@@ -451,6 +455,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
             sideAdvertType: settings.sideAdvertType,
             sideAdvertPath: settings.sideAdvertPath,
             isSideAdvertContentFromInternet: settings.isSideAdvertContentFromInternet,
+            isDarkTheme: settings.isDarkTheme,  // Добавляем настройку темы
+            useAlternatingRowColors: settings.useAlternatingRowColors,
+            evenRowColor: settings.evenRowColor,
+            oddRowColor: settings.oddRowColor,
           ),
         ),
       ),
@@ -562,57 +570,44 @@ class _SettingsWindowState extends State<SettingsWindow> {
           ),
                       // Оформление
                       ExpansionTile(
-                        title: const Text('Оформление', style: TextStyle(fontWeight: FontWeight.bold)),
-                        leading: const Icon(Icons.palette),
-            children: [
-          ListTile(
-            title: const Text('Цвет фона'),
-            trailing: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            onTap: () async {
-              final color = await showColorPicker(
-                context: context,
-                color: backgroundColor,
-              );
-              if (color != null) {
-                setState(() {
-                  backgroundColor = color;
-                });
-                _saveSettings();
-              }
-            },
-          ),
-        ListTile(
-          title: const Text('Цвет рамки'),
-          trailing: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: borderColor,
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          onTap: () async {
-            final color = await showColorPicker(
-              context: context,
-              color: borderColor,
-            );
-            if (color != null) {
-              setState(() {
-                borderColor = color;
-              });
-              _saveSettings();
-            }
-          },
-        ),
+                        title: Row(
+                          children: const [
+                            Icon(Icons.palette),
+                            SizedBox(width: 10),
+                            Text('Оформление'),
+                          ],
+                        ),
+                        children: [
+                          ListTile(
+                            title: const Text('Цвет фона'),
+                            trailing: GestureDetector(
+                              onTap: () => _selectBackgroundColor(context),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: backgroundColor,
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
+                          ListTile(
+                            title: const Text('Цвет рамки'),
+                            trailing: GestureDetector(
+                              onTap: () => _selectBorderColor(context),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: borderColor,
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
                           SwitchListTile(
                             title: const Text('Использовать фоновое изображение'),
                             value: useBackgroundImage,
@@ -623,18 +618,72 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               _saveSettings();
                             },
                           ),
-                          if (useBackgroundImage)
+                          // Добавляем настройки чередования строк
+                          const Divider(),
+                          SwitchListTile(
+                            title: const Text('Чередование цветов строк'),
+                            value: settings.useAlternatingRowColors,
+                            onChanged: (value) {
+                              setState(() {
+                                settings = settings.copyWith(useAlternatingRowColors: value);
+                              });
+                              settings.saveSettings();
+                            },
+                          ),
+                          if (settings.useAlternatingRowColors) ...[
                             ListTile(
-                              title: const Text('Выбрать фоновое изображение'),
-                              trailing: const Icon(Icons.image),
-                              onTap: () => _selectImage('background'),
+                              title: const Text('Цвет четных строк'),
+                              trailing: GestureDetector(
+                                onTap: () async {
+                                  final color = await showColorPicker(
+                                    context: context,
+                                    color: settings.evenRowColor,
+                                  );
+                                  if (color != null) {
+                                    setState(() {
+                                      settings = settings.copyWith(evenRowColor: color);
+                                    });
+                                    settings.saveSettings();
+                                  }
+                                },
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: settings.evenRowColor,
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
                             ),
-                          if (showLogo)
                             ListTile(
-                              title: const Text('Выбрать логотип'),
-                              trailing: const Icon(Icons.image),
-                              onTap: () => _selectImage('logo'),
+                              title: const Text('Цвет нечетных строк'),
+                              trailing: GestureDetector(
+                                onTap: () async {
+                                  final color = await showColorPicker(
+                                    context: context,
+                                    color: settings.oddRowColor,
+                                  );
+                                  if (color != null) {
+                                    setState(() {
+                                      settings = settings.copyWith(oddRowColor: color);
+                                    });
+                                    settings.saveSettings();
+                                  }
+                                },
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: settings.oddRowColor,
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
                             ),
+                          ],
                         ],
                       ),
                       // Виджеты
@@ -2288,6 +2337,32 @@ class _SettingsWindowState extends State<SettingsWindow> {
         ],
       ],
     );
+  }
+
+  Future<void> _selectBackgroundColor(BuildContext context) async {
+    final color = await showColorPicker(
+      context: context,
+      color: backgroundColor,
+    );
+    if (color != null) {
+      setState(() {
+        backgroundColor = color;
+      });
+      _saveSettings();
+    }
+  }
+
+  Future<void> _selectBorderColor(BuildContext context) async {
+    final color = await showColorPicker(
+      context: context,
+      color: borderColor,
+    );
+    if (color != null) {
+      setState(() {
+        borderColor = color;
+      });
+      _saveSettings();
+    }
   }
 }
 

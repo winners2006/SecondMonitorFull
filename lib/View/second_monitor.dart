@@ -117,6 +117,12 @@ class Settings {
 
   bool isDarkTheme;  // Добавляем новое поле
 
+  bool useAlternatingRowColors;  // Использовать чередование цветов
+
+  Color evenRowColor;  // Цвет четных строк
+
+  Color oddRowColor;  // Цвет нечетных строк
+
 
 
   Settings({
@@ -188,6 +194,12 @@ class Settings {
     required this.fontFamily,
 
     required this.isDarkTheme,
+
+    required this.useAlternatingRowColors,
+
+    required this.evenRowColor,
+
+    required this.oddRowColor,
 
   });
 
@@ -264,6 +276,12 @@ class Settings {
       fontFamily: json['fontFamily'] ?? '',
 
       isDarkTheme: json['isDarkTheme'] ?? false,
+
+      useAlternatingRowColors: json['useAlternatingRowColors'] ?? false,
+
+      evenRowColor: Color(json['evenRowColor'] ?? 0xFFFFFFFF),
+
+      oddRowColor: Color(json['oddRowColor'] ?? 0xFFF5F5F5),
 
     );
 
@@ -342,6 +360,12 @@ class Settings {
       'fontFamily': fontFamily,
 
       'isDarkTheme': isDarkTheme,
+
+      'useAlternatingRowColors': useAlternatingRowColors,
+
+      'evenRowColor': evenRowColor.value,
+
+      'oddRowColor': oddRowColor.value,
 
     };
 
@@ -520,6 +544,12 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       isDarkTheme: false,
 
+      useAlternatingRowColors: false,
+
+      evenRowColor: const Color(0xFFFFFFFF),
+
+      oddRowColor: const Color(0xFFF5F5F5),
+
     );
 
 
@@ -530,18 +560,15 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       _server.setVersion85(settings.isVersion85);
 
+      _server.setOnDataReceived(_onDataReceived);
+
       _server.startServer(settings.httpUrl, settings.httpPort);
 
       _webSocketService = WebSocketService();
-
       _webSocketService.setOnDataReceived(_onDataReceived);
-
       _webSocketService.connect(
-
         settings.webSocketUrl,
-
         settings.webSocketPort
-
       );
 
 
@@ -817,103 +844,73 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
   // Обработка полученных данных
 
   void _onDataReceived(dynamic message) {
-
     try {
-
       log('Raw message received: $message');
-
-
-
       String cleanMessage = message.toString().trim();
-
+      
       if (cleanMessage.startsWith('{')) {
-
-        log('Attempting to parse JSON: $cleanMessage');
-
         var jsonData = jsonDecode(cleanMessage);
-
+        log('Parsed JSON data: $jsonData');
         
-
-        if (jsonData['messageType'] == 'checkData') {
-
-          setState(() {
-
-            // Обрабатываем каждое поле отдельно, с проверкой на null
-
-            _checkItems = jsonData['items'] != null 
-
-                ? List<CheckItem>.from(jsonData['items'].map((item) => CheckItem.fromJson(item)))
-
-                : [];
-
-
-
-            _loyaltyProgram = jsonData['loyalty'] != null 
-
-                ? LoyaltyProgram.fromJson(jsonData['loyalty'])
-
-                : null;
-
-
-
-            _paymentQRCode = (jsonData['payment'] != null && jsonData['payment']['qrCodeData'] != null)
-
-                ? PaymentQRCode.fromJson(jsonData['payment'])
-
-                : null;
-
-
-
-            _summary = jsonData['summary'] != null 
-
-                ? Summary.fromJson(jsonData['summary'])
-
-                : null;
-
-          });
-
-
-
-          log('Parsed message: ${_checkItems.length} items, ' 
-
-              'loyalty: ${_loyaltyProgram != null}, '
-
-              'payment: ${_paymentQRCode != null}, '
-
-              'summary: ${_summary != null}');
-
-
-
-          // Управляем воспроизведением видео
-
-          if (_shouldShowVideo()) {
-
-            _playVideo();
-
-          } else {
-
-            _pauseVideo();
-
-          }
-
+        // Преобразуем данные в единый формат и обрабатываем
+        Map<String, dynamic> processedData = {
+          'messageType': 'checkData',
+          'items': jsonData['items'] ?? [],
+          'loyalty': jsonData['loyalty'],
+          'payment': jsonData['payment'],
+          'summary': jsonData['summary']
+        };
+        
+        log('Before processing - Items count: ${_checkItems.length}');
+        log('Processed data: $processedData');
+        
+        _processCheckData(processedData);
+        
+        log('After processing - Items count: ${_checkItems.length}');
+        if (_summary != null) {
+          log('Summary total: ${_summary!.total}');
         }
-
-      } else {
-
-        log('Received message is not a JSON object');
-
       }
-
     } catch (e, stack) {
-
-      log('Error processing message: $e');
-
+      log('Error processing data:');
+      log('Error: $e');
       log('Stack trace: $stack');
-
       log('Message that caused error: $message');
-
     }
+  }
 
+  void _processCheckData(Map<String, dynamic> jsonData) {
+    setState(() {
+      _checkItems = jsonData['items'] != null 
+          ? List<CheckItem>.from(jsonData['items'].map((item) => CheckItem.fromJson(item)))
+          : [];
+          
+      _loyaltyProgram = jsonData['loyalty'] != null 
+          ? LoyaltyProgram.fromJson(jsonData['loyalty'])
+          : null;
+          
+      _paymentQRCode = (jsonData['payment'] != null && jsonData['payment']['qrCodeData'] != null)
+          ? PaymentQRCode.fromJson(jsonData['payment'])
+          : null;
+          
+      _summary = jsonData['summary'] != null 
+          ? Summary.fromJson(jsonData['summary'])
+          : null;
+          
+      // Сохраняем настройки отображения
+      settings = settings.copyWith(
+        useAlternatingRowColors: settings.useAlternatingRowColors,
+        evenRowColor: settings.evenRowColor,
+        oddRowColor: settings.oddRowColor,
+      );
+    });
+    
+    // Управляем воспроизведением видео
+    if (_shouldShowVideo()) {
+      _playVideo();
+    } else {
+      _pauseVideo();
+    }
   }
 
 
@@ -1535,49 +1532,62 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
               itemCount: _checkItems.length,
               itemBuilder: (context, index) {
                 final item = _checkItems[index];
-                return Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          '${index + 1}',
-                          style: _getWidgetTextStyle('items'),
-                        ),
+                return Container(
+                  decoration: BoxDecoration(
+                    color: settings.useAlternatingRowColors 
+                        ? (index % 2 == 0 ? settings.evenRowColor : settings.oddRowColor)
+                        : Colors.transparent,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: settings.borderColor.withOpacity(0.2),
+                        width: 1,
                       ),
                     ),
-                    Expanded(
-                      flex: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          item.name,
-                          style: _getWidgetTextStyle('items'),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            '${index + 1}',
+                            style: _getWidgetTextStyle('items'),
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          '${item.quantity}',
-                          style: _getWidgetTextStyle('items'),
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            item.name,
+                            style: _getWidgetTextStyle('items'),
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          '${item.price}',
-                          style: _getWidgetTextStyle('items'),
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            '${item.quantity}',
+                            style: _getWidgetTextStyle('items'),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            '${item.price}',
+                            style: _getWidgetTextStyle('items'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
