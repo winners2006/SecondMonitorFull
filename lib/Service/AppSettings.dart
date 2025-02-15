@@ -108,6 +108,14 @@ class AppSettings {
 
   final String fontFamily;
 
+  final String sideAdvertType;
+
+  final String sideAdvertPath;
+
+  final String sideAdvertUrl;
+
+  final bool isSideAdvertContentFromInternet;
+
 
 
   AppSettings({
@@ -133,6 +141,10 @@ class AppSettings {
     required this.showAdvertWithoutSales,
 
     required this.showSideAdvert,
+
+    required this.sideAdvertType,
+
+    required this.sideAdvertPath,
 
     required this.sideAdvertVideoPath,
 
@@ -216,6 +228,10 @@ class AppSettings {
 
     this.fontFamily = '',
 
+    this.sideAdvertUrl = '',
+
+    required this.isSideAdvertContentFromInternet,
+
   }) {
 
     this.videoFilePath = videoFilePath;
@@ -243,6 +259,30 @@ class AppSettings {
         final jsonString = await settingsFile.readAsString();
 
         final jsonData = jsonDecode(jsonString);
+
+        
+
+        log('Loading settings from file:');
+
+        log('sideAdvertType: ${jsonData['sideAdvertType']}');
+
+        log('sideAdvertPath: ${jsonData['sideAdvertPath']}');
+
+        log('sideAdvertVideoPath: ${jsonData['sideAdvertVideoPath']}');
+
+        
+
+        // Проверяем тип рекламы и пути
+
+        if (jsonData['sideAdvertType'] == 'image' && jsonData['sideAdvertPath'].toString().isNotEmpty) {
+
+          // Если тип - изображение, очищаем путь к видео
+
+          jsonData['sideAdvertVideoPath'] = '';
+
+        }
+
+        
 
         return AppSettings.fromJson(jsonData);
 
@@ -281,6 +321,10 @@ class AppSettings {
       showAdvertWithoutSales: false,
 
       showSideAdvert: false,
+
+      sideAdvertType: 'video',
+
+      sideAdvertPath: '',
 
       sideAdvertVideoPath: '',
 
@@ -353,6 +397,10 @@ class AppSettings {
       customFontPath: '',
 
       fontFamily: '',
+
+      sideAdvertUrl: '',
+
+      isSideAdvertContentFromInternet: false,
 
     );
 
@@ -497,6 +545,12 @@ class AppSettings {
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
 
+    final type = json['sideAdvertType'] ?? 'video';
+
+    final path = json['sideAdvertPath'] ?? '';
+
+    
+
     // Преобразование widgetPositions
 
     Map<String, Map<String, double>> convertedWidgetPositions = {};
@@ -557,7 +611,11 @@ class AppSettings {
 
       showSideAdvert: json['showSideAdvert'] ?? false,
 
-      sideAdvertVideoPath: json['sideAdvertVideoPath'] ?? '',
+      sideAdvertType: type,
+
+      sideAdvertPath: path,
+
+      sideAdvertVideoPath: type == 'video' ? path : '',
 
       isSideAdvertFromInternet: json['isSideAdvertFromInternet'] ?? true,
 
@@ -629,6 +687,10 @@ class AppSettings {
 
       fontFamily: json['fontFamily'] ?? '',
 
+      sideAdvertUrl: json['sideAdvertUrl'] ?? '',
+
+      isSideAdvertContentFromInternet: json['isSideAdvertContentFromInternet'] ?? false,
+
     );
 
   }
@@ -637,7 +699,7 @@ class AppSettings {
 
   Map<String, dynamic> toJson() {
 
-    return {
+    final Map<String, dynamic> data = {
 
       'videoFilePath': videoFilePath,
 
@@ -661,7 +723,11 @@ class AppSettings {
 
       'showSideAdvert': showSideAdvert,
 
-      'sideAdvertVideoPath': sideAdvertVideoPath,
+      'sideAdvertType': sideAdvertType,
+
+      'sideAdvertPath': sideAdvertPath,
+
+      'sideAdvertVideoPath': sideAdvertType == 'video' ? sideAdvertPath : '',
 
       'isSideAdvertFromInternet': isSideAdvertFromInternet,
 
@@ -733,7 +799,18 @@ class AppSettings {
 
       'fontFamily': fontFamily,
 
+      'sideAdvertUrl': sideAdvertUrl,
+
+      'isSideAdvertContentFromInternet': isSideAdvertContentFromInternet,
+
     };
+    
+    log('Saving to JSON:');
+    log('Type: ${data['sideAdvertType']}');
+    log('VideoPath: ${data['sideAdvertVideoPath']}');
+    log('Path: ${data['sideAdvertPath']}');
+    
+    return data;
 
   }
 
@@ -805,7 +882,19 @@ class AppSettings {
 
     String? selectedResolution,
 
+    String? sideAdvertType,
+
+    String? sideAdvertPath,
+
+    bool? isSideAdvertContentFromInternet,
+
+    String? sideAdvertUrl,
+
   }) {
+
+    log('copyWith called with:');
+    log('sideAdvertPath: $sideAdvertPath');
+    log('sideAdvertVideoPath: $sideAdvertVideoPath');
 
     return AppSettings(
 
@@ -900,6 +989,14 @@ class AppSettings {
       fontFamily: fontFamily ?? this.fontFamily,
 
       selectedResolution: selectedResolution ?? this.selectedResolution,
+
+      sideAdvertType: sideAdvertType ?? this.sideAdvertType,
+
+      sideAdvertPath: sideAdvertPath ?? this.sideAdvertPath,
+
+      isSideAdvertContentFromInternet: isSideAdvertContentFromInternet ?? this.isSideAdvertContentFromInternet,
+
+      sideAdvertUrl: sideAdvertUrl ?? this.sideAdvertUrl,
 
     );
 

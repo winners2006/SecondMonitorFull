@@ -5,6 +5,7 @@ import 'package:second_monitor/View/WindowManager.dart';
 import 'package:second_monitor/View/LaunchWindow.dart';
 import 'package:second_monitor/Service/AppSettings.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:second_monitor/Service/Server.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,11 +16,19 @@ void main(List<String> args) async {
     await windowManager.waitUntilReadyToShow();
     await windowManager.setFullScreen(true);
     await windowManager.show();
-    runApp(MaterialApp(
+    runApp(const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const SettingsWindow(),
+      home: SettingsWindow(),
     ));
   } else if (args.contains('--monitor')) {
+    final settings = await AppSettings.loadSettings();
+    final server = Server(settings);
+    server.setVersion85(settings.isVersion85);
+    await server.startServer(
+      settings.webSocketUrl, 
+      settings.webSocketPort
+    );
+    
     // Получаем размер второго монитора
     final screens = await ScreenRetriever.instance.getAllDisplays();
     final targetScreen = screens.length > 1 ? screens[1] : screens[0];
@@ -36,7 +45,6 @@ void main(List<String> args) async {
     ));
     await windowManager.show();
 
-    final settings = await AppSettings.loadSettings();
     runApp(MaterialApp(
       home: Directionality(
         textDirection: TextDirection.ltr,
@@ -52,7 +60,7 @@ void main(List<String> args) async {
     await windowManager.center();
     await windowManager.show();
     
-    runApp(MaterialApp(
+    runApp(const MaterialApp(
       home: Directionality(
         textDirection: TextDirection.ltr,
         child: LaunchWindow(),

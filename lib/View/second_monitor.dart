@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart' show RawKeyDownEvent;
+import 'package:second_monitor/Service/logger.dart';
 
 import 'package:window_manager/window_manager.dart';
 
@@ -36,9 +37,9 @@ import 'package:second_monitor/View/WindowManager.dart';
 
 import 'package:second_monitor/View/LaunchWindow.dart';
 
-import 'package:second_monitor/Model/Message1C.dart';
-
 import 'package:flutter/rendering.dart';
+
+import 'package:video_player_win/video_player_win.dart';
 
 import 'package:second_monitor/Service/FontManager.dart';
 
@@ -388,6 +389,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   final FocusNode _focusNode = FocusNode();
 
+  WinVideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  String _currentVideoPath = '';
+  bool _isSideAdvertVideoInitialized = false;
+
 
 
   @override
@@ -498,13 +504,19 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       fontFamily: '',
 
+      sideAdvertType: 'video',
+
+      sideAdvertPath: '',
+
+      isSideAdvertContentFromInternet: false,
+
     );
 
 
 
-    _initScreenSize().then((_) {
+    _initScreenSize().then((_) async {
 
-      _server = Server();
+      _server = Server(settings);
 
       _server.setVersion85(settings.isVersion85);
 
@@ -514,17 +526,27 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       _webSocketService.setOnDataReceived(_onDataReceived);
 
-      _webSocketService.connect('ws://localhost:4002/ws/');
+      _webSocketService.connect(
+
+        settings.webSocketUrl,
+
+        settings.webSocketPort
+
+      );
 
 
 
-      _loadSettings().then((_) {
+      await _checkAndCopyDll();
 
-        _initializeVideo();
 
-        _initializeSideAdvertVideo();
 
-        _initFullScreen();
+      _loadSettings().then((_) async {
+
+        await _initializeVideo();
+
+        await _initializeSideAdvertVideo();
+
+        await _initFullScreen();
 
       });
 
@@ -538,6 +560,23 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     });
 
+
+
+    log('SecondMonitor initialized with settings:');
+    log('showSideAdvert: ${settings.showSideAdvert}');
+    log('sideAdvertType: ${settings.sideAdvertType}');
+    log('isSideAdvertContentFromInternet: ${settings.isSideAdvertContentFromInternet}');
+    log('sideAdvertUrl: ${settings.sideAdvertUrl}');
+    log('sideAdvertPath: ${settings.sideAdvertPath}');
+
+    if (settings.showSideAdvert) {
+      if (settings.sideAdvertType == 'video') {
+        String videoSource = settings.isSideAdvertContentFromInternet 
+            ? settings.sideAdvertUrl 
+            : settings.sideAdvertPath;
+        log('Video source will be: $videoSource');
+      }
+    }
   }
 
 
@@ -546,13 +585,15 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   Future<void> _loadSettings() async {
 
-    settings = await AppSettings.loadSettings();  // Загрузка настроек
+    settings = await AppSettings.loadSettings();
 
-    print('Loaded settings:');  // Отладочный вывод
+    log('Loaded settings from file:');
 
-    print('Open settings hotkey: ${settings.openSettingsHotkey}');
+    log('Side Advert Video Path: ${settings.sideAdvertVideoPath}');
 
-    print('Close window hotkey: ${settings.closeMainWindowHotkey}');
+    log('Show Side Advert: ${settings.showSideAdvert}');
+
+    log('Side Advert Type: ${settings.sideAdvertType}');
 
     // Получаем размеры из настроек
 
@@ -578,7 +619,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   // Инициализация полноэкранного режима
 
-  void _initFullScreen() async {
+  Future<void> _initFullScreen() async {
 
     await windowManager.ensureInitialized();
 
@@ -592,140 +633,173 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
 
 
-  // Инициализация видео
+  Future<void> _initializeVideo() async {
+    try {
+      final videoPath = settings.isVideoFromInternet 
+          ? settings.videoUrl 
+          : settings.videoFilePath;
+      
+      log('Инициализация видео. Путь: $videoPath, IsInternet: ${settings.isVideoFromInternet}');
 
-  void _initializeVideo() {
-
-    startTimerVideoReinit();
-
-    
-
-    // Инициализация основного видео
-
-    if (settings.isVideoFromInternet) {
-
-      _videoManager.initialize(
-
-        isVideoFromInternet: true,
-
-        videoSource: settings.videoUrl,
-
-      ).then((_) {
-
-        setState(() {});
-
-      });
-
-    } else {
-
-      _videoManager.initialize(
-
-        isVideoFromInternet: false,
-
-        videoSource: settings.videoFilePath,
-
-      ).then((_) {
-
-        setState(() {});
-
-      });
-
-    }
-
-
-
-    // Инициализация видео для рекламы
-
-    if (settings.showAdvertWithoutSales) {
-
-      if (settings.isAdvertFromInternet) {
-
-        _videoManager.initialize(
-
-          isVideoFromInternet: true,
-
-          videoSource: settings.advertVideoUrl,
-
-        ).then((_) {
-
-          setState(() {});
-
-        });
-
-      } else {
-
-        _videoManager.initialize(
-
-          isVideoFromInternet: false,
-
-          videoSource: settings.advertVideoPath,
-
-        ).then((_) {
-
-          setState(() {});
-
-        });
-
+      // Проверяем валидность пути/URL
+      if (videoPath.isEmpty) {
+        log('Ошибка: путь к видео пустой');
+        return;
       }
 
+      // Проверяем, нужно ли переинициализировать видео
+      if (_currentVideoPath == videoPath && _isVideoInitialized) {
+        log('Видео уже инициализировано');
+        return;
+      }
+
+      log('Освобождение предыдущего контроллера');
+      await _disposeVideoController();
+
+      // Проверяем существование файла для локального видео
+      if (!settings.isVideoFromInternet) {
+        final file = File(videoPath);
+        if (!file.existsSync()) {
+          log('Ошибка: локальный файл не найден: $videoPath');
+          return;
+        }
+        log('Локальный файл найден');
+      }
+
+      log('Создание контроллера');
+      try {
+        _videoController = settings.isVideoFromInternet
+            ? WinVideoPlayerController.network(videoPath)
+            : WinVideoPlayerController.file(File(videoPath));
+      } catch (e) {
+        log('Ошибка создания контроллера: $e');
+        return;
+      }
+
+      log('Инициализация контроллера');
+      try {
+        await _videoController!.initialize();
+        log('Контроллер успешно инициализирован');
+        
+        if (!mounted) {
+          log('Виджет уже не mounted');
+          await _disposeVideoController();
+          return;
+        }
+
+        setState(() {
+          _isVideoInitialized = true;
+          _currentVideoPath = videoPath;
+        });
+        
+        log('Настройка параметров воспроизведения');
+        await _videoController!.setLooping(true);
+        await _videoController!.setVolume(0.0);
+        
+        if (_shouldShowVideo()) {
+          log('Запуск воспроизведения');
+          await _videoController!.play();
+        }
+      } catch (e) {
+        log('Ошибка при инициализации контроллера: $e');
+        await _disposeVideoController();
+      }
+
+    } catch (e, stack) {
+      log('Общая ошибка инициализации видео: $e');
+      log('Stack trace: $stack');
+      _isVideoInitialized = false;
+    }
+  }
+
+  Future<void> _disposeVideoController() async {
+    if (_videoController != null) {
+      await _videoController!.pause();
+      await _videoController!.dispose();
+      _videoController = null;
+      _isVideoInitialized = false;
+      _currentVideoPath = '';
+    }
+  }
+
+  void _playVideo() {
+    if (_isVideoInitialized && _videoController != null) {
+      try {
+        _videoController!.play();
+      } catch (e) {
+        log('Ошибка воспроизведения видео: $e');
+      }
+    }
+  }
+
+  void _pauseVideo() {
+    if (_isVideoInitialized && _videoController != null) {
+      try {
+        _videoController!.pause();
+      } catch (e) {
+        log('Ошибка паузы видео: $e');
+      }
+    }
+  }
+
+  Widget _buildVideoPlayer() {
+    if (!_isVideoInitialized || _videoController == null) {
+      return const Center(child: CircularProgressIndicator());
     }
 
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: _videoController!.value.size.width,
+          height: _videoController!.value.size.height,
+          child: WinVideoPlayer(_videoController!),
+        ),
+      ),
+    );
   }
 
 
 
   // Инициализация боковой рекламы
 
-  void _initializeSideAdvertVideo() {
+  Future<void> _initializeSideAdvertVideo() async {
+    log('Initializing side advert with:');
+    log('Type: ${settings.sideAdvertType}');
+    log('Path: ${settings.sideAdvertPath}');
+    log('VideoPath: ${settings.sideAdvertVideoPath}');
 
-    if (settings.showSideAdvert) {
+    if (!settings.showSideAdvert) return;
 
-      if (settings.isSideAdvertFromInternet) {
-
-        _sideAdvertVideoManager.initialize(
-
-          isVideoFromInternet: true,
-
-          videoSource: settings.sideAdvertVideoUrl,
-
-        ).then((_) {
-
-          setState(() {});  // Обновление состояния
-
-        });
-
-      } else {
-
-        _sideAdvertVideoManager.initialize(
-
-          isVideoFromInternet: false,
-
-          videoSource: settings.sideAdvertVideoPath,
-
-        ).then((_) {
-
-          setState(() {});  // Обновление состояния
-
-        });
-
+    if (settings.sideAdvertType == 'video') {
+      if (settings.sideAdvertVideoPath.isEmpty) {
+        log('Error: video path is empty');
+        return;
       }
 
+      try {
+        await _sideAdvertVideoManager.initialize(
+          isVideoFromInternet: false,
+          videoSource: settings.sideAdvertVideoPath,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _isSideAdvertVideoInitialized = true;
+          });
+          _sideAdvertVideoManager.play();
+        }
+      } catch (e) {
+        log('Error initializing video: $e');
+        _isSideAdvertVideoInitialized = false;
+      }
+    } else {
+      // Если тип не видео, отключаем видеоплеер
+      _isSideAdvertVideoInitialized = false;
     }
-
-  }
-
-
-
-  // Таймер для повторной инициализации видео
-
-  void startTimerVideoReinit() {
-
-    Timer.periodic(const Duration(hours: 5), (Timer timer) {
-
-      _initializeVideo();  // Повторная инициализация видео
-
-    });
-
   }
 
 
@@ -736,7 +810,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     try {
 
-      print('Raw message received: $message');
+      log('Raw message received: $message');
 
 
 
@@ -744,7 +818,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       if (cleanMessage.startsWith('{')) {
 
-        print('Attempting to parse JSON: $cleanMessage');
+        log('Attempting to parse JSON: $cleanMessage');
 
         var jsonData = jsonDecode(cleanMessage);
 
@@ -752,23 +826,51 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
         if (jsonData['messageType'] == 'checkData') {
 
-          final message1C = Message1C.fromJson(jsonData);
-
-          print('Successfully parsed message: ${message1C.items.length} items');
-
-          
-
           setState(() {
 
-            _checkItems = message1C.items;
+            // Обрабатываем каждое поле отдельно, с проверкой на null
 
-            _loyaltyProgram = message1C.loyalty;
+            _checkItems = jsonData['items'] != null 
 
-            _paymentQRCode = message1C.payment;
+                ? List<CheckItem>.from(jsonData['items'].map((item) => CheckItem.fromJson(item)))
 
-            _summary = message1C.summary;
+                : [];
+
+
+
+            _loyaltyProgram = jsonData['loyalty'] != null 
+
+                ? LoyaltyProgram.fromJson(jsonData['loyalty'])
+
+                : null;
+
+
+
+            _paymentQRCode = (jsonData['payment'] != null && jsonData['payment']['qrCodeData'] != null)
+
+                ? PaymentQRCode.fromJson(jsonData['payment'])
+
+                : null;
+
+
+
+            _summary = jsonData['summary'] != null 
+
+                ? Summary.fromJson(jsonData['summary'])
+
+                : null;
 
           });
+
+
+
+          log('Parsed message: ${_checkItems.length} items, ' 
+
+              'loyalty: ${_loyaltyProgram != null}, '
+
+              'payment: ${_paymentQRCode != null}, '
+
+              'summary: ${_summary != null}');
 
 
 
@@ -776,11 +878,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
           if (_shouldShowVideo()) {
 
-            _videoManager.play();
+            _playVideo();
 
           } else {
 
-            _videoManager.pause();
+            _pauseVideo();
 
           }
 
@@ -788,17 +890,17 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       } else {
 
-        print('Received message is not a JSON object');
+        log('Received message is not a JSON object');
 
       }
 
     } catch (e, stack) {
 
-      print('Error processing message: $e');
+      log('Error processing message: $e');
 
-      print('Stack trace: $stack');
+      log('Stack trace: $stack');
 
-      print('Message that caused error: $message');
+      log('Message that caused error: $message');
 
     }
 
@@ -856,7 +958,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
             builder: (context, constraints) {
 
-              return Container(
+              return SizedBox(
 
                 width: constraints.maxWidth,
 
@@ -864,7 +966,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
                 child: _shouldShowVideo()
 
-                  ? _videoManager.buildVideoPlayer(context)
+                  ? _buildVideoPlayer()
 
                   : Container(
 
@@ -910,7 +1012,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
                           if (settings.showSideAdvert)
 
-                            _buildScaledSideAdvertVideo(1.0, 1.0),
+                            _buildSideAdvert(),
 
                         ],
 
@@ -1111,7 +1213,8 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
                   ),
                 ),
               ),
-            ]);
+            ],
+          );
         break;
 
 
@@ -1256,7 +1359,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       case 'items':
 
-        content = _buildItemsList();
+        content = _buildItemsWidget();
 
         break;
 
@@ -1326,9 +1429,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
       child: Container(
 
+        clipBehavior: Clip.none,
+
         decoration: BoxDecoration(
 
-          color: widgetColor, // Используем выбранный цвет
+          color: widgetColor,
 
           border: Border.all(color: settings.borderColor),
 
@@ -1354,212 +1459,120 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   // Построение списка товаров
 
-  Widget _buildItemsList() {
-
-    return Column(
-
-      children: [
-
-        Container(
-
-          color: Colors.grey[200],
-
-          child: Row(
-
-            children: [
-
-              Expanded(
-
-                flex: 1,
-
-                child: Padding(
-
-                  padding: const EdgeInsets.all(8.0),
-
-                  child: Text(
-
-                    '№',
-
-                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-
-                  ),
-
-                ),
-
+  Widget _buildItemsWidget() {
+    return Container(
+      decoration: BoxDecoration(
+        color: _getWidgetColor('items'),
+        border: Border.all(color: Colors.grey),
+      ),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.grey),
               ),
-
-              Expanded(
-
-                flex: 4,
-
-                child: Padding(
-
-                  padding: const EdgeInsets.all(8.0),
-
-                  child: Text(
-
-                    'Наименование',
-
-                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      '№',
+                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+                    ),
                   ),
-
                 ),
-
-              ),
-
-              Expanded(
-
-                flex: 2,
-
-                child: Padding(
-
-                  padding: const EdgeInsets.all(8.0),
-
-                  child: Text(
-
-                    'Кол-во',
-
-                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-
+                Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Наименование',
+                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+                    ),
                   ),
-
                 ),
-
-              ),
-
-              Expanded(
-
-                flex: 2,
-
-                child: Padding(
-
-                  padding: const EdgeInsets.all(8.0),
-
-                  child: Text(
-
-                    'Цена',
-
-                    style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Кол-во',
+                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+                    ),
                   ),
-
                 ),
-              ),
-            ],
-
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Цена',
+                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-
-        ),
-
-        Expanded(
-
-          child: ListView.builder(
-
-            itemCount: _checkItems.length,
-
-            itemBuilder: (context, index) {
-
-              final item = _checkItems[index];
-
-              return Row(
-
-                children: [
-
-                  Expanded(
-
-                    flex: 1,
-
-                    child: Padding(
-
-                      padding: const EdgeInsets.all(8.0),
-
-                      child: Text(
-
-                        '${index + 1}',
-
-                        style: _getWidgetTextStyle('items'),
-
+          Expanded(
+            child: ListView.builder(
+              itemCount: _checkItems.length,
+              itemBuilder: (context, index) {
+                final item = _checkItems[index];
+                return Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          '${index + 1}',
+                          style: _getWidgetTextStyle('items'),
+                        ),
                       ),
-
                     ),
-
-                  ),
-
-                  Expanded(
-
-                    flex: 4,
-
-                    child: Padding(
-
-                      padding: const EdgeInsets.all(8.0),
-
-                      child: Text(
-
-                        item.name,
-
-                        style: _getWidgetTextStyle('items'),
-
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          item.name,
+                          style: _getWidgetTextStyle('items'),
+                        ),
                       ),
-
                     ),
-
-                  ),
-
-                  Expanded(
-
-                    flex: 2,
-
-                    child: Padding(
-
-                      padding: const EdgeInsets.all(8.0),
-
-                      child: Text(
-
-                        '${item.quantity}',
-
-                        style: _getWidgetTextStyle('items'),
-
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          '${item.quantity}',
+                          style: _getWidgetTextStyle('items'),
+                        ),
                       ),
-
                     ),
-
-                  ),
-
-                  Expanded(
-
-                    flex: 2,
-
-                    child: Padding(
-
-                      padding: const EdgeInsets.all(8.0),
-
-                      child: Text(
-
-                        '${item.price}',
-
-                        style: _getWidgetTextStyle('items'),
-
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          '${item.price}',
+                          style: _getWidgetTextStyle('items'),
+                        ),
                       ),
-
                     ),
-
-                  ),
-
-                ],
-
-              );
-
-            },
-
+                  ],
+                );
+              },
+            ),
           ),
-
-        ),
-
-      ],
-
+        ],
+      ),
     );
-
   }
 
 
@@ -1590,34 +1603,38 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
   // Построение боковой рекламы
 
-  Widget _buildScaledSideAdvertVideo(double scaleX, double scaleY) {
-
+  Widget _buildSideAdvert() {
+    if (!settings.showSideAdvert) return const SizedBox.shrink();
+    
     final pos = settings.widgetPositions['sideAdvert'];
-
     if (pos == null) return const SizedBox.shrink();
 
-
+    Widget content;
+    if (settings.sideAdvertType == 'video' && _isSideAdvertVideoInitialized) {
+      content = _sideAdvertVideoManager.buildVideoPlayer(context);
+    } else if (settings.sideAdvertType == 'image') {
+      content = Image.file(
+        File(settings.sideAdvertPath),
+        fit: BoxFit.contain,
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
 
     return Positioned(
-
-      left: pos['x']! * scaleX,
-
-      top: pos['y']! * scaleY,
-
-      width: pos['w']! * scaleX,
-
-      height: pos['h']! * scaleY,
-
+      left: pos['x']!,
+      top: pos['y']!,
+      width: pos['w']!,
+      height: pos['h']!,
       child: Container(
-
+        decoration: BoxDecoration(
+          border: Border.all(color: settings.borderColor),
+          borderRadius: BorderRadius.circular(8),
+        ),
         clipBehavior: Clip.antiAlias,
-
-        child: _sideAdvertVideoManager.buildVideoPlayer(context),
-
+        child: content,
       ),
-
     );
-
   }
 
 
@@ -1649,11 +1666,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
     if (hotkey.isEmpty) return false;
     
 
-    print('Checking hotkey match:');
+    log('Checking hotkey match:');
 
-    print('Hotkey from settings: $hotkey');
+    log('Hotkey from settings: $hotkey');
 
-    print('Pressed key: ${event.logicalKey.keyLabel}');
+    log('Pressed key: ${event.logicalKey.keyLabel}');
 
     
 
@@ -1697,11 +1714,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     
 
-    print('Modifiers match: $modifiersMatch');
+    log('Modifiers match: $modifiersMatch');
 
-    print('Key matches: $keyMatches');
+    log('Key matches: $keyMatches');
 
-    print('Letter key required: $letterKey');
+    log('Letter key required: $letterKey');
 
     
 
@@ -1726,6 +1743,8 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
     _webSocketService.disconnect();
 
     _server.stopServer();
+
+    _disposeVideoController();
 
     super.dispose();
 
@@ -1847,11 +1866,11 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
       });
       
 
-      print('Font loaded successfully: ${newStyle.fontFamily}');
+      log('Font loaded successfully: ${newStyle.fontFamily}');
 
     } catch (e) {
 
-      print('Error loading font: $e');
+      log('Error loading font: $e');
 
     }
 
@@ -1891,7 +1910,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     } catch (e) {
 
-      print('Error updating font: $e');
+      log('Error updating font: $e');
 
     }
 
@@ -1924,6 +1943,43 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
 
     });
 
+  }
+
+
+
+  Future<void> _checkAndCopyDll() async {
+    try {
+      final String exePath = Platform.resolvedExecutable;
+      final String exeDir = File(exePath).parent.path;
+      final String dllPath = '$exeDir\\video_player_win_plugin.dll';
+      final String debugDllPath = '$exeDir\\Debug\\video_player_win_plugin.dll';
+
+      // Проверяем существование Debug DLL
+      if (File(debugDllPath).existsSync()) {
+        log('Copying Debug DLL...');
+        await File(debugDllPath).copy(dllPath);
+        log('Debug DLL copied successfully');
+      } else {
+        log('Debug DLL not found at: $debugDllPath');
+      }
+    } catch (e) {
+      log('Error copying DLL: $e');
+    }
+  }
+
+  Color _getWidgetColor(String type) {
+    switch (type) {
+      case 'loyalty':
+        return settings.loyaltyWidgetColor;
+      case 'payment':
+        return settings.paymentWidgetColor;
+      case 'summary':
+        return settings.summaryWidgetColor;
+      case 'items':
+        return settings.itemsWidgetColor;
+      default:
+        return Colors.white;
+    }
   }
 
 }

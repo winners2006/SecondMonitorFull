@@ -34,31 +34,34 @@ class WebSocketService {
 
   /// Устанавливает WebSocket-соединение с сервером
   /// 
-  /// [url] - адрес WebSocket-сервера (например, 'ws://localhost:4002/ws/')
+  /// [host] - хост WebSocket-сервера
+  /// [port] - порт WebSocket-сервера
   /// При обрыве соединения автоматически пытается переподключиться
-  Future<void> connect(String url) async {
+  Future<void> connect(String host, int port) async {
     if (_isConnected) return;
 
+    final wsUrl = 'ws://$host:4002/ws';
     try {
-      print('Attempting to connect to WebSocket at $url');
-      _webSocket = await WebSocket.connect(url);
+      log('Attempting to connect to WebSocket at $wsUrl');
+      _webSocket = await WebSocket.connect(wsUrl);
       _isConnected = true;
       _listenToMessages();
       _reconnectTimer?.cancel();
-      print('WebSocket connected successfully');
+      log('WebSocket connected successfully');
     } catch (e) {
-      print('WebSocket connection error: $e');
-      _scheduleReconnect(url);
+      log('WebSocket connection error: $e');
+      _scheduleReconnect(host, 4002);
     }
   }
 
   /// Планирует повторное подключение при обрыве связи
   /// 
-  /// [url] - адрес для переподключения
+  /// [host] - хост для переподключения
+  /// [port] - порт для переподключения
   /// Пытается переподключиться каждые 5 секунд
-  void _scheduleReconnect(String url) {
+  void _scheduleReconnect(String host, int port) {
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(_reconnectDelay, () => connect(url));
+    _reconnectTimer = Timer(_reconnectDelay, () => connect(host, port));
   }
 
   /// Настраивает прослушивание входящих сообщений
@@ -67,7 +70,7 @@ class WebSocketService {
   void _listenToMessages() {
     _webSocket?.listen(
       (data) {
-        print('WebSocket received data: $data');
+        log('WebSocket received data: $data');
         try {
           _onDataReceived(data);
         } catch (e) {
@@ -75,12 +78,12 @@ class WebSocketService {
         }
       },
       onError: (error) => {
-        print('WebSocket error: $error'),
+        log('WebSocket error: $error'),
         log('WebSocketService: WebSocket error: $error'),
         _isConnected = false
       },
       onDone: () => {
-        print('WebSocket connection closed'),
+        log('WebSocket connection closed'),
         log('WebSocketService: WebSocket connection closed'),
         _isConnected = false
       },

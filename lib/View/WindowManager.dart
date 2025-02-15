@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:second_monitor/Service/FontManager.dart';
 import 'package:window_manager/window_manager.dart';
+import 'dart:developer';
 
 // Окно настроек приложения
 class SettingsWindow extends StatefulWidget {
@@ -73,6 +74,9 @@ class _SettingsWindowState extends State<SettingsWindow> {
     inactivityTimeout: 50,
     openSettingsHotkey: 'Ctrl + Shift + S',
     closeMainWindowHotkey: 'Ctrl + Shift + L',
+    sideAdvertType: 'video',
+    sideAdvertPath: '',
+    isSideAdvertContentFromInternet: false,
   );
 
   // Базовые настройки
@@ -244,6 +248,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
 
   // Загрузка настроек из хранилища
   void _loadSettings() async {
+    settings = await AppSettings.loadSettings();
+    setState(() {
+      _selectedVideoPath = settings.sideAdvertVideoPath;
+    });
     setState(() {
       videoFilePath = settings.videoFilePath;
       videoUrl = settings.videoUrl;
@@ -285,10 +293,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
       httpPort = settings.httpPort;
     });
   }
-
   // Сохранение настроек в хранилище
   Future<void> _saveSettings() async {
-    // Обновляем настройки перед сохранением
     settings = AppSettings(
      
       videoFilePath: videoFilePath,
@@ -302,7 +308,9 @@ class _SettingsWindowState extends State<SettingsWindow> {
       logoPath: logoPath,
       showAdvertWithoutSales: showAdvertWithoutSales,
       showSideAdvert: showSideAdvert,
-      sideAdvertVideoPath: sideAdvertVideoPath,
+      sideAdvertVideoPath: settings.sideAdvertVideoPath,  // Используем существующий путь
+      sideAdvertPath: settings.sideAdvertPath,            // Используем существующий путь
+      sideAdvertType: settings.sideAdvertType,            // Сохраняем текущий тип
       isSideAdvertFromInternet: isSideAdvertFromInternet,
       sideAdvertVideoUrl: sideAdvertVideoUrl,
       widgetPositions: widgetPositions,
@@ -336,7 +344,15 @@ class _SettingsWindowState extends State<SettingsWindow> {
       advertVideoPath: settings.advertVideoPath,
       advertVideoUrl: settings.advertVideoUrl,
       isAdvertFromInternet: settings.isAdvertFromInternet,
+      //sideAdvertPath: _selectedVideoPath,        // Используем выбранный путь
+      isSideAdvertContentFromInternet: false,
+      sideAdvertUrl: sideAdvertVideoUrl,
     );
+
+    log('Before saving:');
+    log('_selectedVideoPath: $_selectedVideoPath');
+    log('sideAdvertVideoPath: ${settings.sideAdvertVideoPath}');
+    log('sideAdvertPath: ${settings.sideAdvertPath}');
 
     await settings.saveSettings();
   }
@@ -368,10 +384,17 @@ class _SettingsWindowState extends State<SettingsWindow> {
           logoPath = result.files.single.path!;
         } else if (type == 'background') {
           backgroundImagePath = result.files.single.path!;
+        } else if (type == 'sideAdvert') {
+          settings = settings.copyWith(
+            showSideAdvert: true,
+            sideAdvertType: 'image',  // Меняем тип на изображение
+            sideAdvertVideoPath: '',  // Очищаем путь к видео
+            sideAdvertPath: result.files.single.path!,
+            isSideAdvertContentFromInternet: false,
+          );
         }
       });
-      await _saveSettings();
-      _resetInactivityTimer();
+      await settings.saveSettings();
     }
   }
 
@@ -401,31 +424,33 @@ class _SettingsWindowState extends State<SettingsWindow> {
       MaterialPageRoute(
         builder: (context) => SecondMonitor(
           settings: AppSettings(
-            
-            videoFilePath: videoFilePath,
-            videoUrl: videoUrl,
-            isVideoFromInternet: isVideoFromInternet,
-            showLoyaltyWidget: showLoyaltyWidget,
-            backgroundColor: backgroundColor,
-            borderColor: borderColor,
-            backgroundImagePath: backgroundImagePath,
-            useBackgroundImage: useBackgroundImage,
-            logoPath: logoPath,
-            showAdvertWithoutSales: showAdvertWithoutSales,
-            showSideAdvert: showSideAdvert,
-            sideAdvertVideoPath: sideAdvertVideoPath,
-            isSideAdvertFromInternet: isSideAdvertFromInternet,
-            sideAdvertVideoUrl: sideAdvertVideoUrl,
-            widgetPositions: widgetPositions,
-            logoPosition: logoPosition,
-            autoStart: autoStart,
-            useInactivityTimer: useInactivityTimer,
-            inactivityTimeout: inactivityTimeout,
-            webSocketUrl: webSocketUrl,
-            httpUrl: httpUrl,
-            isVersion85: isVersion85,
-            webSocketPort: webSocketPort,
-            httpPort: httpPort,
+            videoFilePath: settings.videoFilePath,
+            videoUrl: settings.videoUrl,
+            isVideoFromInternet: settings.isVideoFromInternet,
+            showLoyaltyWidget: settings.showLoyaltyWidget,
+            backgroundColor: settings.backgroundColor,
+            borderColor: settings.borderColor,
+            backgroundImagePath: settings.backgroundImagePath,
+            useBackgroundImage: settings.useBackgroundImage,
+            logoPath: settings.logoPath,
+            showAdvertWithoutSales: settings.showAdvertWithoutSales,
+            showSideAdvert: settings.showSideAdvert,
+            sideAdvertVideoPath: settings.sideAdvertVideoPath,
+            isSideAdvertFromInternet: settings.isSideAdvertFromInternet,
+            sideAdvertVideoUrl: settings.sideAdvertVideoUrl,
+            widgetPositions: settings.widgetPositions,
+            logoPosition: settings.logoPosition,
+            autoStart: settings.autoStart,
+            useInactivityTimer: settings.useInactivityTimer,
+            inactivityTimeout: settings.inactivityTimeout,
+            webSocketUrl: settings.webSocketUrl,
+            httpUrl: settings.httpUrl,
+            isVersion85: settings.isVersion85,
+            webSocketPort: settings.webSocketPort,
+            httpPort: settings.httpPort,
+            sideAdvertType: settings.sideAdvertType,
+            sideAdvertPath: settings.sideAdvertPath,
+            isSideAdvertContentFromInternet: settings.isSideAdvertContentFromInternet,
           ),
         ),
       ),
@@ -542,12 +567,16 @@ class _SettingsWindowState extends State<SettingsWindow> {
           ListTile(
             title: const Text('Цвет фона'),
             trailing: Container(
-                              width: 24,
-                              height: 24,
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
                 color: backgroundColor,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
             onTap: () async {
-                              final color = await showColorPicker(
+              final color = await showColorPicker(
                 context: context,
                 color: backgroundColor,
               );
@@ -562,12 +591,16 @@ class _SettingsWindowState extends State<SettingsWindow> {
         ListTile(
           title: const Text('Цвет рамки'),
           trailing: Container(
-                              width: 24,
-                              height: 24,
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
               color: borderColor,
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
           onTap: () async {
-                              final color = await showColorPicker(
+            final color = await showColorPicker(
               context: context,
               color: borderColor,
             );
@@ -666,8 +699,26 @@ class _SettingsWindowState extends State<SettingsWindow> {
                           ),
                           if (showSideAdvert) ...[
                             const Divider(),
+                            // Добавляем выбор типа контента
+                            ListTile(
+                              title: const Text('Тип контента'),
+                              trailing: DropdownButton<String>(
+                                value: settings.sideAdvertType,
+                                items: const [
+                                  DropdownMenuItem(value: 'video', child: Text('Видео')),
+                                  DropdownMenuItem(value: 'image', child: Text('Изображение')),
+                                ],
+                                onChanged: (String? value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      settings = _updateSettings(sideAdvertType: value);
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
                             SwitchListTile(
-                              title: const Text('Видео из интернета'),
+                              title: const Text('Контент из интернета'),
                               value: isSideAdvertFromInternet,
                               onChanged: (value) {
                                 setState(() {
@@ -680,8 +731,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               ListTile(
                                 title: TextField(
                                   controller: TextEditingController(text: sideAdvertVideoUrl),
-                                  decoration: const InputDecoration(
-                                    labelText: 'URL видео',
+                                  decoration: InputDecoration(
+                                    labelText: 'URL ${settings.sideAdvertType == 'video' ? 'видео' : 'изображения'}',
                                   ),
                                   onChanged: (value) {
                                     setState(() {
@@ -693,9 +744,23 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               ),
                             if (!isSideAdvertFromInternet)
                               ListTile(
-                                title: const Text('Выбрать видео'),
-                                trailing: const Icon(Icons.video_library),
-                                onTap: _selectSideAdvertVideo,
+                                title: Text('Выбрать ${settings.sideAdvertType == 'video' ? 'видео' : 'изображение'}'),
+                                trailing: const Icon(Icons.folder_open),
+                                onTap: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: settings.sideAdvertType == 'video' 
+                                      ? ['mp4', 'avi', 'mkv'] 
+                                      : ['jpg', 'jpeg', 'png'],
+                                  );
+                                  if (result != null) {
+                                    setState(() {
+                                      settings = _updateSettings(
+                                        sideAdvertPath: result.files.single.path ?? '',
+                                      );
+                                    });
+                                  }
+                                },
                               ),
                           ],
                           const Divider(),
@@ -713,30 +778,47 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               ListTile(
                                 title: const Text('Общий цвет виджетов'),
                                 trailing: Container(
-                                  width: 24,
-                                  height: 24,
+                                  width: 40,
+                                  height: 40,
                                   decoration: BoxDecoration(
-                                    color: settings.loyaltyWidgetColor,
-                                    border: Border.all(color: Colors.grey),
+                                    color: settings.backgroundColor,
+                                    border: Border.all(color: Colors.black),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                              title: const Text('Выберите цвет'),
+                                              content: SingleChildScrollView(
+                                                child: ColorPicker(
+                                                  pickerColor: settings.backgroundColor,
+                                                  onColorChanged: (Color color) {
+                                                    setState(() {
+                                                      settings = _updateSettings(backgroundColor: color);
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                              actions: <Widget>[
+                                                TextButton(
+                                                  child: const Text('OK'),
+                                                  onPressed: () {
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
-                                onTap: () async {
-                                  final color = await showColorPicker(
-                                    context: context,
-                                    color: settings.loyaltyWidgetColor,
-                                  );
-                                  if (color != null) {
-                                    setState(() {
-                                      settings = _updateSettings(
-                                        loyaltyWidgetColor: color,
-                                        paymentWidgetColor: color,
-                                        summaryWidgetColor: color,
-                                        itemsWidgetColor: color,
-                                      );
-                                    });
-                                    _saveSettings();
-                                  }
-                                },
                               ),
                               const Divider(),
                               // Индивидуальные цвета
@@ -749,6 +831,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                     decoration: BoxDecoration(
                                       color: settings.loyaltyWidgetColor,
                                       border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                   ),
                                   onTap: () async {
@@ -766,13 +849,14 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                 ),
                               if (showPaymentQR)
                                 ListTile(
-                                  title: const Text('Цвет виджета QR-кода'),
+                                  title: const Text('Цвет QR-кода'),
                                   trailing: Container(
                                     width: 24,
                                     height: 24,
                                     decoration: BoxDecoration(
                                       color: settings.paymentWidgetColor,
                                       border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                   ),
                                   onTap: () async {
@@ -790,13 +874,14 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                 ),
                               if (showSummary)
                                 ListTile(
-                                  title: const Text('Цвет виджета итогов'),
+                                  title: const Text('Цвет итогов'),
                                   trailing: Container(
                                     width: 24,
                                     height: 24,
                                     decoration: BoxDecoration(
                                       color: settings.summaryWidgetColor,
                                       border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                   ),
                                   onTap: () async {
@@ -820,6 +905,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                   decoration: BoxDecoration(
                                     color: settings.itemsWidgetColor,
                                     border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
                                 onTap: () async {
@@ -1000,19 +1086,38 @@ class _SettingsWindowState extends State<SettingsWindow> {
                             else
                               ListTile(
                                 title: const Text('Выбрать видео'),
-                                trailing: const Icon(Icons.video_library),
-                                onTap: () async {
-                                  final result = await FilePicker.platform.pickFiles(
-                                    type: FileType.video,
-                                    allowMultiple: false,
-                                  );
-                                  if (result != null) {
-                                    setState(() {
-                                      videoFilePath = result.files.single.path ?? '';
-                                    });
-                                    _saveSettings();
-                                  }
-                                },
+                                subtitle: Text(settings.sideAdvertVideoPath.isEmpty ? 'Видео не выбрано' : settings.sideAdvertVideoPath),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.folder_open),
+                                  onPressed: () async {
+                                    final result = await FilePicker.platform.pickFiles(
+                                      type: FileType.video,
+                                    );
+                                    if (result != null) {
+                                      final path = result.files.single.path!;
+                                      log('Selected video path: $path');
+                                      
+                                      setState(() {
+                                        settings = settings.copyWith(
+                                          showSideAdvert: true,
+                                          sideAdvertType: 'video',
+                                          sideAdvertVideoPath: path,
+                                          sideAdvertPath: path,
+                                          isSideAdvertContentFromInternet: false,
+                                        );
+                                      });
+                                      
+                                      // Сразу сохраняем настройки
+                                      await settings.saveSettings();
+                                      
+                                      // Проверяем сохраненные значения
+                                      log('After save:');
+                                      log('Type: ${settings.sideAdvertType}');
+                                      log('VideoPath: ${settings.sideAdvertVideoPath}');
+                                      log('Path: ${settings.sideAdvertPath}');
+                                    }
+                                  },
+                                ),
                               ),
                           ],
                         ],
@@ -1172,6 +1277,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
                           ],
                         ),
                       ),
+                      // Боковая реклама
+                      _buildSideAdvertSection(),
                     ],
                   ),
                 ),
@@ -1224,8 +1331,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
                       width: 2,
                     ),
                   ),
-            )],
-              
+                ),
+              ],
             ),
           ),
         ),
@@ -1438,19 +1545,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
       case 'items': return 'Таблица товаров';
       case 'advert': return 'Реклама без продаж';
       default: return '';
-    }
-  }
-
-  Future<void> _selectSideAdvertVideo() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-    );
-
-    if (result != null) {
-      setState(() {
-        sideAdvertVideoPath = result.files.single.path!;
-      });
-      _saveSettings();
     }
   }
 
@@ -1985,7 +2079,11 @@ class _SettingsWindowState extends State<SettingsWindow> {
     bool? showSideAdvert,
     bool? isSideAdvertFromInternet,
     String? sideAdvertVideoPath,
+    String? sideAdvertPath,
     String? sideAdvertVideoUrl,
+    String? sideAdvertType,
+    bool? isSideAdvertContentFromInternet,
+    String? sideAdvertUrl,
     Color? loyaltyWidgetColor,
     Color? paymentWidgetColor,
     Color? summaryWidgetColor,
@@ -2000,14 +2098,23 @@ class _SettingsWindowState extends State<SettingsWindow> {
     Color? itemsFontColor,
     String? customFontPath,
     String? fontFamily,
+    Color? backgroundColor,
   }) {
+    // Проверяем валидность URL или пути к файлу
+    if (sideAdvertUrl != null && sideAdvertUrl.isNotEmpty) {
+      log('Setting sideAdvertUrl: $sideAdvertUrl');
+    }
+    if (sideAdvertPath != null && sideAdvertPath.isNotEmpty) {
+      log('Setting sideAdvertPath: $sideAdvertPath');
+    }
+    
     final newSettings = AppSettings(
       
       videoFilePath: settings.videoFilePath,
       videoUrl: settings.videoUrl,
       isVideoFromInternet: settings.isVideoFromInternet,
       showLoyaltyWidget: settings.showLoyaltyWidget,
-      backgroundColor: settings.backgroundColor,
+      backgroundColor: backgroundColor ?? settings.backgroundColor,
       borderColor: settings.borderColor,
       backgroundImagePath: settings.backgroundImagePath,
       useBackgroundImage: settings.useBackgroundImage,
@@ -2048,6 +2155,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
       advertVideoPath: settings.advertVideoPath,
       advertVideoUrl: settings.advertVideoUrl,
       isAdvertFromInternet: settings.isAdvertFromInternet,
+      sideAdvertPath: sideAdvertPath ?? settings.sideAdvertPath,
+      sideAdvertType: sideAdvertType ?? settings.sideAdvertType,
+      isSideAdvertContentFromInternet: isSideAdvertContentFromInternet ?? settings.isSideAdvertContentFromInternet,
+      sideAdvertUrl: sideAdvertUrl ?? settings.sideAdvertUrl,
     );
 
     newSettings.saveSettings();
@@ -2058,6 +2169,114 @@ class _SettingsWindowState extends State<SettingsWindow> {
   double _getScale() {
     const selectedSize = Size(1920, 1080); // Используем фиксированное разрешение
     return MediaQuery.of(context).size.width * 0.5 / selectedSize.width;
+  }
+
+  // В _SettingsWindowState добавим метод для сохранения настроек боковой рекламы
+  void _saveSideAdvertSettings() {
+    if (_selectedVideoPath.isEmpty) {
+      log('Error: Selected video path is empty');
+      return;
+    }
+    
+    settings = settings.copyWith(
+      showSideAdvert: true,
+      sideAdvertType: 'video',
+      sideAdvertVideoPath: _selectedVideoPath,  // Устанавливаем путь к видео
+      sideAdvertPath: _selectedVideoPath,       // Устанавливаем общий путь
+      isSideAdvertContentFromInternet: false,
+    );
+    
+    settings.saveSettings();
+  }
+
+  String _selectedVideoPath = '';
+  String _videoUrl = '';
+
+  // В методе build добавим секцию для боковой рекламы
+  Widget _buildSideAdvertSection() {
+    return ExpansionTile(
+      title: const Row(
+        children: [
+          Icon(Icons.video_library),
+          SizedBox(width: 10),
+          Text('Боковая реклама'),
+        ],
+      ),
+      children: [
+        SwitchListTile(
+          title: const Text('Показывать боковую рекламу'),
+          value: settings.showSideAdvert,
+          onChanged: (value) {
+            setState(() {
+              settings = settings.copyWith(showSideAdvert: value);
+              settings.saveSettings();  // Сохраняем изменения
+            });
+          },
+        ),
+        if (settings.showSideAdvert) ...[
+          ListTile(
+            title: const Text('Выбрать видео'),
+            subtitle: Text(settings.sideAdvertVideoPath.isEmpty ? 'Видео не выбрано' : settings.sideAdvertVideoPath),
+            trailing: IconButton(
+              icon: const Icon(Icons.folder_open),
+              onPressed: () async {
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.video,
+  );
+  if (result != null) {
+    final path = result.files.single.path!;
+    log('Selected video path: $path');
+    
+    setState(() {
+      settings = settings.copyWith(
+        showSideAdvert: true,
+        sideAdvertType: 'video',
+        sideAdvertVideoPath: path,
+        sideAdvertPath: path,
+        isSideAdvertContentFromInternet: false,
+      );
+    });
+    
+    // Сразу сохраняем настройки
+    await settings.saveSettings();
+    
+    // Проверяем сохраненные значения
+    log('After save:');
+    log('Type: ${settings.sideAdvertType}');
+    log('VideoPath: ${settings.sideAdvertVideoPath}');
+    log('Path: ${settings.sideAdvertPath}');
+  }
+},
+            ),
+          ),
+          ListTile(  // Добавляем новый ListTile для изображения
+            title: const Text('Выбрать изображение'),
+            subtitle: Text(settings.sideAdvertPath.isEmpty ? 'Изображение не выбрано' : settings.sideAdvertPath),
+            trailing: IconButton(
+              icon: const Icon(Icons.image),
+              onPressed: () async {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.image,
+                );
+                if (result != null) {
+                  final path = result.files.single.path!;
+                  setState(() {
+                    settings = settings.copyWith(
+                      showSideAdvert: true,
+                      sideAdvertType: 'image',
+                      sideAdvertVideoPath: '',  // Очищаем путь к видео
+                      sideAdvertPath: path,
+                      isSideAdvertContentFromInternet: false,
+                    );
+                  });
+                  await settings.saveSettings();
+                }
+              },
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 

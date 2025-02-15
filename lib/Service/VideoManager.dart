@@ -12,52 +12,58 @@ class VideoManager {
     required bool isVideoFromInternet,
     required String videoSource,
   }) async {
-    if (videoSource.isEmpty) return;
+    log('VideoManager: Starting initialization');
+    if (videoSource.isEmpty) {
+      log('VideoManager: Empty video source');
+      return;
+    }
 
     try {
-      log('Starting video initialization: $videoSource');
-      
-      await dispose();
+      await dispose();  // Очищаем предыдущий контроллер
 
+      log('VideoManager: Creating controller for: $videoSource');
       _videoController = isVideoFromInternet
           ? VideoPlayerController.networkUrl(Uri.parse(videoSource))
           : VideoPlayerController.file(File(videoSource));
 
+      log('VideoManager: Initializing controller');
       await _videoController!.initialize();
       
-      if (_videoController != null && _videoController!.value.isInitialized) {
+      if (_videoController!.value.isInitialized) {
+        log('VideoManager: Controller initialized successfully');
         await _videoController!.setLooping(true);
         await _videoController!.setVolume(0.0);
         _isInitialized = true;
-        await _videoController!.play();
+      } else {
+        log('VideoManager: Controller failed to initialize');
+        _isInitialized = false;
       }
     } catch (e) {
-      log('Error initializing video: $e');
+      log('VideoManager: Error during initialization: $e');
       _isInitialized = false;
+      rethrow;
     }
   }
 
   Widget buildVideoPlayer(BuildContext context) {
     if (!_isInitialized || _videoController == null) {
+      log('VideoManager: Cannot build player - not initialized');
       return const SizedBox.shrink();
     }
     
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.black,
-      child: Center(
-        child: AspectRatio(
-          aspectRatio: MediaQuery.of(context).size.width / MediaQuery.of(context).size.height,
-          child: VideoPlayer(_videoController!),
-        ),
-      ),
+    log('VideoManager: Building video player widget');
+    return AspectRatio(
+      aspectRatio: _videoController!.value.aspectRatio,
+      child: VideoPlayer(_videoController!),
     );
   }
 
   void play() {
-    if (_isInitialized && _videoController != null) {
+    if (_videoController != null && _videoController!.value.isInitialized) {
+      log('VideoManager: Playing video');
       _videoController!.play();
+    } else {
+      log('VideoManager: Cannot play - controller not ready');
     }
   }
 
@@ -69,6 +75,7 @@ class VideoManager {
 
   Future<void> dispose() async {
     if (_videoController != null) {
+      log('VideoManager: Disposing controller');
       await _videoController!.dispose();
       _videoController = null;
       _isInitialized = false;
