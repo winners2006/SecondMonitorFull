@@ -116,6 +116,8 @@ class AppSettings {
 
   final bool isSideAdvertContentFromInternet;
 
+  final bool isDarkTheme;
+
 
 
   AppSettings({
@@ -231,6 +233,8 @@ class AppSettings {
     this.sideAdvertUrl = '',
 
     required this.isSideAdvertContentFromInternet,
+
+    this.isDarkTheme = false,
 
   }) {
 
@@ -401,6 +405,8 @@ class AppSettings {
       sideAdvertUrl: '',
 
       isSideAdvertContentFromInternet: false,
+
+      isDarkTheme: false,
 
     );
 
@@ -691,6 +697,8 @@ class AppSettings {
 
       isSideAdvertContentFromInternet: json['isSideAdvertContentFromInternet'] ?? false,
 
+      isDarkTheme: json['isDarkTheme'] ?? false,
+
     );
 
   }
@@ -803,6 +811,8 @@ class AppSettings {
 
       'isSideAdvertContentFromInternet': isSideAdvertContentFromInternet,
 
+      'isDarkTheme': isDarkTheme,
+
     };
     
     log('Saving to JSON:');
@@ -889,6 +899,8 @@ class AppSettings {
     bool? isSideAdvertContentFromInternet,
 
     String? sideAdvertUrl,
+
+    bool? isDarkTheme,
 
   }) {
 
@@ -997,6 +1009,8 @@ class AppSettings {
       isSideAdvertContentFromInternet: isSideAdvertContentFromInternet ?? this.isSideAdvertContentFromInternet,
 
       sideAdvertUrl: sideAdvertUrl ?? this.sideAdvertUrl,
+
+      isDarkTheme: isDarkTheme ?? this.isDarkTheme,
 
     );
 

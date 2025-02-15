@@ -504,6 +504,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: settings.isDarkTheme ? ThemeData.dark() : ThemeData.light(),
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Настройки'),
@@ -1165,6 +1166,16 @@ class _SettingsWindowState extends State<SettingsWindow> {
                             subtitle: const Text('Запускать приложение при старте Windows'),
                             value: autoStart,
                             onChanged: _updateAutoStart,
+                          ),
+                          SwitchListTile(
+                            title: const Text('Темная тема'),
+                            value: settings.isDarkTheme,
+                            onChanged: (value) {
+                              setState(() {
+                                settings = settings.copyWith(isDarkTheme: value);
+                              });
+                              settings.saveSettings();
+                            },
                           ),
                         ],
                       ),

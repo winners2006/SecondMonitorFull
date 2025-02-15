@@ -115,6 +115,8 @@ class Settings {
 
   String fontFamily;  // Название шрифта
 
+  bool isDarkTheme;  // Добавляем новое поле
+
 
 
   Settings({
@@ -184,6 +186,8 @@ class Settings {
     required this.itemsFontColor,
 
     required this.fontFamily,
+
+    required this.isDarkTheme,
 
   });
 
@@ -258,6 +262,8 @@ class Settings {
       itemsFontColor: Color(json['itemsFontColor'] ?? 0xFF000000),
 
       fontFamily: json['fontFamily'] ?? '',
+
+      isDarkTheme: json['isDarkTheme'] ?? false,
 
     );
 
@@ -334,6 +340,8 @@ class Settings {
       'itemsFontColor': itemsFontColor.value,
 
       'fontFamily': fontFamily,
+
+      'isDarkTheme': isDarkTheme,
 
     };
 
@@ -509,6 +517,8 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
       sideAdvertPath: '',
 
       isSideAdvertContentFromInternet: false,
+
+      isDarkTheme: false,
 
     );
 
@@ -949,6 +959,8 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
       },
 
       child: MaterialApp(
+
+        theme: settings.isDarkTheme ? ThemeData.dark() : ThemeData.light(),
 
         debugShowCheckedModeBanner: false,
 
