@@ -295,6 +295,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
   }
   // Сохранение настроек в хранилище
   Future<void> _saveSettings() async {
+    log('Before save - isDarkTheme: ${settings.isDarkTheme}');
+    
     settings = AppSettings(
      
       videoFilePath: videoFilePath,
@@ -352,12 +354,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
       oddRowColor: settings.oddRowColor,
       isDarkTheme: settings.isDarkTheme,  // Добавляем параметр темы
     );
-
-    log('Before saving:');
-    log('_selectedVideoPath: $_selectedVideoPath');
-    log('sideAdvertVideoPath: ${settings.sideAdvertVideoPath}');
-    log('sideAdvertPath: ${settings.sideAdvertPath}');
-
+    
+    log('After save - isDarkTheme: ${settings.isDarkTheme}');
     await settings.saveSettings();
   }
 
@@ -551,30 +549,11 @@ class _SettingsWindowState extends State<SettingsWindow> {
                     children: [
                       // Настройки экрана
                       ExpansionTile(
-                        initiallyExpanded: true,
-                        title: const Text('Настройки экрана', style: TextStyle(fontWeight: FontWeight.bold)),
-                        leading: const Icon(Icons.monitor),
-          children: [
-        SwitchListTile(
-                            secondary: const Icon(Icons.fullscreen),
-                            title: const Text('Полноэкранный режим'),
-                            value: false,
-          onChanged: (value) {
-            setState(() {
-                                // isFullScreen = value;
-            });
-            _saveSettings();
-                            },
-              ),
-            ],
-          ),
-                      // Оформление
-                      ExpansionTile(
-                        title: Row(
-                          children: const [
+                        title: const Row(
+                          children: [
                             Icon(Icons.palette),
                             SizedBox(width: 10),
-                            Text('Оформление'),
+                            Text('Оформление', style: TextStyle(fontWeight: FontWeight.bold)),
                           ],
                         ),
                         children: [
@@ -1337,8 +1316,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
                           ],
                         ),
                       ),
-                      // Боковая реклама
-                      _buildSideAdvertSection(),
                     ],
                   ),
                 ),
@@ -2250,7 +2227,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
   }
 
   String _selectedVideoPath = '';
-  String _videoUrl = '';
 
   // В методе build добавим секцию для боковой рекламы
   Widget _buildSideAdvertSection() {
