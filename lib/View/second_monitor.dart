@@ -43,6 +43,8 @@ import 'package:video_player_win/video_player_win.dart';
 
 import 'package:second_monitor/Service/FontManager.dart';
 
+import 'package:second_monitor/View/LicenseCheckWidget.dart';
+
 
 
 // Класс настроек приложения
@@ -377,7 +379,7 @@ class Settings {
 
 // Основной виджет второго монитора
 
-class SecondMonitor extends StatefulWidget {
+class SecondMonitor extends LicenseCheckWidget {
 
   final AppSettings? settings;  // Настройки приложения
 
@@ -395,7 +397,7 @@ class SecondMonitor extends StatefulWidget {
 
 
 
-class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserver {
+class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsBindingObserver {
 
   late AppSettings settings;  // Переменная для хранения настроек
 
@@ -889,7 +891,7 @@ class _SecondMonitorState extends State<SecondMonitor> with WidgetsBindingObserv
           ? LoyaltyProgram.fromJson(jsonData['loyalty'])
           : null;
           
-      _paymentQRCode = (jsonData['payment'] != null && jsonData['payment']['qrCodeData'] != null)
+      _paymentQRCode = (jsonData['payment'] != null && jsonData['payment']['qrData'] != '')
           ? PaymentQRCode.fromJson(jsonData['payment'])
           : null;
           

@@ -6,11 +6,40 @@ import 'package:second_monitor/View/LaunchWindow.dart';
 import 'package:second_monitor/Service/AppSettings.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:second_monitor/Service/Server.dart';
+import 'package:second_monitor/Service/LicenseManager.dart';
+import 'package:second_monitor/View/LicenseWindow.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
+  // Проверяем лицензию
+  final hasValidLicense = await LicenseManager.checkLicense();
+  
+  // Если лицензия недействительна, всегда показываем окно лицензии
+  if (!hasValidLicense) {
+    // Очищаем все данные лицензии
+    await LicenseManager.revokeLicense();
+    
+    await windowManager.waitUntilReadyToShow();
+    await windowManager.setTitle('Активация лицензии');
+    await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+    await windowManager.center();
+    await windowManager.show();
+    
+    runApp(MaterialApp(
+      navigatorKey: navigatorKey,
+      home: const LicenseWindow(),
+      routes: {
+        '/launch': (context) => const LaunchWindow(),
+        '/settings': (context) => const SettingsWindow(),
+        '/monitor': (context) => const SecondMonitor(),
+      },
+    ));
+    return;
+  }
+
+  // Если лицензия валидна, запускаем нужное окно
   if (args.contains('--settings')) {
     // Окно настроек всегда в полноэкранном режиме
     await windowManager.waitUntilReadyToShow();

@@ -3,15 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:second_monitor/View/WindowManager.dart';
 import 'package:second_monitor/View/second_monitor.dart';
+import 'package:second_monitor/Service/LicenseManager.dart';
+import 'package:second_monitor/View/LicenseCheckWidget.dart';
 
-class LaunchWindow extends StatefulWidget {
+class LaunchWindow extends LicenseCheckWidget {
   const LaunchWindow({super.key});
 
   @override
   _LaunchWindowState createState() => _LaunchWindowState();
 }
 
-class _LaunchWindowState extends State<LaunchWindow> {
+class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
   static const String appVersion = '1.0.0';
   bool autoStart = false;
 

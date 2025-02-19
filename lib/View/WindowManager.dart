@@ -14,9 +14,12 @@ import 'dart:math' as math;
 import 'package:second_monitor/Service/FontManager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:developer';
+import 'package:second_monitor/View/LicenseWindow.dart';
+import 'package:second_monitor/View/LicenseManagerWindow.dart';
+import 'package:second_monitor/View/LicenseCheckWidget.dart';
 
 // Окно настроек приложения
-class SettingsWindow extends StatefulWidget {
+class SettingsWindow extends LicenseCheckWidget {
   static Future<void> showFullscreen(BuildContext context) async {
     await windowManager.waitUntilReadyToShow();
     await windowManager.setFullScreen(true);
@@ -38,7 +41,7 @@ class SettingsWindow extends StatefulWidget {
   _SettingsWindowState createState() => _SettingsWindowState();
 }
 
-class _SettingsWindowState extends State<SettingsWindow> {
+class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
   AppSettings settings = AppSettings(
     
     videoFilePath: '',
@@ -534,6 +537,15 @@ class _SettingsWindowState extends State<SettingsWindow> {
               onPressed: () => _launchSecondMonitor(context),
             ),
             const SizedBox(width: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LicenseWindow()),
+                );
+              },
+              child: const Text('Лицензия'),
+            ),
           ],
         ),
         body: Row(
