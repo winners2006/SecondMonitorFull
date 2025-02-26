@@ -5,6 +5,7 @@ import 'package:second_monitor/View/WindowManager.dart';
 import 'package:second_monitor/View/second_monitor.dart';
 import 'package:second_monitor/View/LicenseCheckWidget.dart';
 import 'package:second_monitor/Service/WindowService.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LaunchWindow extends LicenseCheckWidget {
   const LaunchWindow({super.key});
@@ -106,10 +107,10 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton.icon(
-                    icon: Icon(Icons.play_arrow, color: const Color(0xFF3579A6)),
-                    label: Text(
+                    icon: const Icon(Icons.play_arrow, color: Color(0xFF3579A6)),
+                    label: const Text(
                       'Запустить',
-                      style: TextStyle(color: const Color(0xFF3579A6)),
+                      style: TextStyle(color: Color(0xFF3579A6)),
                     ),
                     onPressed: _launchApp,
                   ),
@@ -125,10 +126,37 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
                 ],
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Контакты:\nEmail: support@example.com\nТел: +7 (999) 123-45-67',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14),
+              Column(
+                children: [
+                  const Text(
+                    'Контакты:',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    'support@jndev.ru',
+                    style: const TextStyle(fontSize: 14),
+                    toolbarOptions: const ToolbarOptions(copy: true),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () async {
+                      final Uri url = Uri.parse('https://jndev.ru');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      }
+                    },
+                    child: const Text(
+                      'jndev.ru',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
