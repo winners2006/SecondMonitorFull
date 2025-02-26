@@ -15,8 +15,9 @@ import 'package:second_monitor/Service/FontManager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:developer';
 import 'package:second_monitor/View/LicenseWindow.dart';
-import 'package:second_monitor/View/LicenseManagerWindow.dart';
 import 'package:second_monitor/View/LicenseCheckWidget.dart';
+import 'package:second_monitor/Service/WindowService.dart';
+import 'package:second_monitor/View/ResizableWidget.dart';
 
 // Окно настроек приложения
 class SettingsWindow extends LicenseCheckWidget {
@@ -30,6 +31,17 @@ class SettingsWindow extends LicenseCheckWidget {
         MaterialPageRoute(
           builder: (context) => const SettingsWindow(),
           fullscreenDialog: true, // Важный параметр
+        ),
+      );
+    }
+  }
+
+  static Future<void> showSettings(BuildContext context) async {
+    await WindowService.moveToMainScreen();
+    if (context.mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const SettingsWindow(),
         ),
       );
     }
@@ -64,6 +76,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
       'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
       'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
+      'logo': {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0}, // Добавляем позицию для логотипа
     },
     logoPosition: {
       'x': 10.0,
@@ -119,6 +132,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
     'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
     'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
     'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
+    'logo': {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0}, // Добавляем позицию для логотипа
   };
 
   // Служебные переменные
@@ -225,6 +239,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
   @override
   void initState() {
     super.initState();
+    _initializeWidgetPositions();
     getSecondMonitorSize().then((size) {
       setState(() {
         previewSize = size;
@@ -232,6 +247,20 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       });
     });
     _initSettings();
+  }
+
+  void _initializeWidgetPositions() {
+    // Убедимся, что у нас есть начальные позиции для всех виджетов
+    widgetPositions = settings.widgetPositions ?? {};
+    if (!widgetPositions.containsKey('logo')) {
+      widgetPositions['logo'] = {
+        'x': 10.0,
+        'y': 10.0,
+        'w': 100.0,
+        'h': 50.0,
+      };
+    }
+    settings = settings.copyWith(widgetPositions: widgetPositions);
   }
 
   // Инициализация настроек
@@ -278,22 +307,32 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
           'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
           'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
           'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
+          'logo': {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0}, // Добавляем позицию для логотипа
         });
       } else {
-        widgetPositions.addAll(settings.widgetPositions);
+        widgetPositions.addAll(Map<String, Map<String, double>>.from(settings.widgetPositions));
+        // Убедимся, что позиция логотипа существует
+        if (!widgetPositions.containsKey('logo')) {
+          widgetPositions['logo'] = {
+            'x': 10.0,
+            'y': 10.0,
+            'w': 100.0,
+            'h': 50.0,
+          };
+        }
+        logoPosition = settings.logoPosition;
+        isLoading = false;
+        useInactivityTimer = settings.useInactivityTimer;
+        inactivityTimeout = settings.inactivityTimeout;
+        showLogo = settings.showLogo;
+        showPaymentQR = settings.showPaymentQR;
+        showSummary = settings.showSummary;
+        webSocketUrl = settings.webSocketUrl;
+        httpUrl = settings.httpUrl;
+        isVersion85 = settings.isVersion85;
+        webSocketPort = settings.webSocketPort;
+        httpPort = settings.httpPort;
       }
-      logoPosition = settings.logoPosition;
-      isLoading = false;
-      useInactivityTimer = settings.useInactivityTimer;
-      inactivityTimeout = settings.inactivityTimeout;
-      showLogo = settings.showLogo;
-      showPaymentQR = settings.showPaymentQR;
-      showSummary = settings.showSummary;
-      webSocketUrl = settings.webSocketUrl;
-      httpUrl = settings.httpUrl;
-      isVersion85 = settings.isVersion85;
-      webSocketPort = settings.webSocketPort;
-      httpPort = settings.httpPort;
     });
   }
   // Сохранение настроек в хранилище
@@ -359,21 +398,45 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
     );
     
     log('After save - isDarkTheme: ${settings.isDarkTheme}');
-    await settings.saveSettings();
+    await AppSettings.saveSettings(settings);
   }
 
   // Выбор видеофайла
-  Future<void> _selectVideoFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+  Future<void> _selectVideo() async {
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.video,
     );
-
     if (result != null) {
+      final path = result.files.single.path!;
+      log('Selected main video path: $path');
+      
+      final newSettings = settings.copyWith(
+        videoFilePath: path,
+        isVideoFromInternet: false,
+        showAdvertWithoutSales: true,
+        advertVideoPath: '',
+        advertVideoUrl: '',
+      );
+      
+      log('New settings before setState:');
+      log('VideoFilePath: ${newSettings.videoFilePath}');
+      
       setState(() {
-        videoFilePath = result.files.single.path!;
+        settings = newSettings;
       });
-      await _saveSettings();
-      _resetInactivityTimer();
+      
+      log('Settings before save:');
+      log('VideoFilePath: ${settings.videoFilePath}');
+      
+      await AppSettings.saveSettings(settings);
+      
+      log('Settings after save:');
+      log('VideoFilePath: ${settings.videoFilePath}');
+      
+      // Перезагружаем настройки для проверки
+      final loadedSettings = await AppSettings.loadSettings();
+      log('Reloaded settings:');
+      log('VideoFilePath: ${loadedSettings.videoFilePath}');
     }
   }
 
@@ -399,7 +462,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
           );
         }
       });
-      await settings.saveSettings();
+      await AppSettings.saveSettings(settings);
     }
   }
 
@@ -422,48 +485,14 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
   }
 
   // Запуск второго монитора
-  void _launchSecondMonitor(BuildContext context) {
-    _saveSettings();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SecondMonitor(
-          settings: AppSettings(
-            videoFilePath: settings.videoFilePath,
-            videoUrl: settings.videoUrl,
-            isVideoFromInternet: settings.isVideoFromInternet,
-            showLoyaltyWidget: settings.showLoyaltyWidget,
-            backgroundColor: settings.backgroundColor,
-            borderColor: settings.borderColor,
-            backgroundImagePath: settings.backgroundImagePath,
-            useBackgroundImage: settings.useBackgroundImage,
-            logoPath: settings.logoPath,
-            showAdvertWithoutSales: settings.showAdvertWithoutSales,
-            showSideAdvert: settings.showSideAdvert,
-            sideAdvertVideoPath: settings.sideAdvertVideoPath,
-            isSideAdvertFromInternet: settings.isSideAdvertFromInternet,
-            sideAdvertVideoUrl: settings.sideAdvertVideoUrl,
-            widgetPositions: settings.widgetPositions,
-            logoPosition: settings.logoPosition,
-            autoStart: settings.autoStart,
-            useInactivityTimer: settings.useInactivityTimer,
-            inactivityTimeout: settings.inactivityTimeout,
-            webSocketUrl: settings.webSocketUrl,
-            httpUrl: settings.httpUrl,
-            isVersion85: settings.isVersion85,
-            webSocketPort: settings.webSocketPort,
-            httpPort: settings.httpPort,
-            sideAdvertType: settings.sideAdvertType,
-            sideAdvertPath: settings.sideAdvertPath,
-            isSideAdvertContentFromInternet: settings.isSideAdvertContentFromInternet,
-            isDarkTheme: settings.isDarkTheme,  // Добавляем настройку темы
-            useAlternatingRowColors: settings.useAlternatingRowColors,
-            evenRowColor: settings.evenRowColor,
-            oddRowColor: settings.oddRowColor,
-          ),
-        ),
-      ),
-    );
+  void _launchSecondMonitor(BuildContext context) async {
+    await WindowService.moveToSecondScreen();
+    if (context.mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const SecondMonitor()),
+      );
+    }
   }
 
   // Показать цветовой пикер
@@ -516,9 +545,14 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       theme: settings.isDarkTheme ? ThemeData.dark() : ThemeData.light(),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Настройки'),
+          backgroundColor: Colors.white,
+          elevation: 1,
+          title: const Text(
+            'Настройки',
+           
+          ),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF3579A6)),
             onPressed: () {
               Navigator.pushReplacement(
                 context,
@@ -528,28 +562,31 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
           ),
           actions: [
             ElevatedButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Запустить'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
+              icon: const Icon(Icons.play_arrow, color: Color(0xFF3579A6)),
+              label: const Text(
+                'Запустить',
+                style: TextStyle(color: Color(0xFF3579A6)),
               ),
               onPressed: () => _launchSecondMonitor(context),
             ),
             const SizedBox(width: 16),
-            ElevatedButton(
+            ElevatedButton.icon(
+              icon: const Icon(Icons.key, color: Color(0xFF3579A6)),
+              label: const Text(
+                'Лицензия',
+                style: TextStyle(color: Color(0xFF3579A6)),
+              ),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const LicenseWindow()),
                 );
               },
-              child: const Text('Лицензия'),
             ),
           ],
         ),
         body: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               flex: 2,
@@ -557,20 +594,29 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Настройки экрана
                       ExpansionTile(
                         title: const Row(
                           children: [
-                            Icon(Icons.palette),
+                            Icon(Icons.palette, color: Color(0xFF3579A6)),
                             SizedBox(width: 10),
-                            Text('Оформление', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              'Оформление',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                
+                              ),
+                            ),
                           ],
                         ),
                         children: [
                           ListTile(
-                            title: const Text('Цвет фона'),
+                            title: const Text(
+                              'Цвет фона',
+                              
+                            ),
                             trailing: GestureDetector(
                               onTap: () => _selectBackgroundColor(context),
                               child: Container(
@@ -585,7 +631,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                             ),
                           ),
                           ListTile(
-                            title: const Text('Цвет рамки'),
+                            title: const Text(
+                              'Цвет рамки',
+                             
+                            ),
                             trailing: GestureDetector(
                               onTap: () => _selectBorderColor(context),
                               child: Container(
@@ -599,31 +648,89 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               ),
                             ),
                           ),
-                          SwitchListTile(
+                          ListTile(
                             title: const Text('Использовать фоновое изображение'),
-                            value: useBackgroundImage,
-                            onChanged: (value) {
-                              setState(() {
-                                useBackgroundImage = value;
-                              });
-                              _saveSettings();
-                            },
+                            trailing: Switch(
+                              activeColor: const Color(0xFF3579A6),
+                              value: settings.useBackgroundImage,
+                              onChanged: (bool value) async {
+                                setState(() {
+                                  settings = settings.copyWith(useBackgroundImage: value);
+                                  AppSettings.saveSettings(settings);
+                                });
+                                
+                                // Если включаем фон, сразу предлагаем выбрать изображение
+                                if (value) {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.image,
+                                    allowedExtensions: ['jpg', 'jpeg', 'png'],
+                                  );
+                                  
+                                  if (result != null) {
+                                    setState(() {
+                                      settings = settings.copyWith(
+                                        backgroundImagePath: result.files.single.path!,
+                                        useBackgroundImage: true,
+                                      );
+                                    });
+                                  } else {
+                                    // Если изображение не выбрано, отключаем опцию
+                                    setState(() {
+                                      settings = settings.copyWith(useBackgroundImage: false);
+                                    });
+                                  }
+                                }
+                              },
+                            ),
                           ),
+                          // Показываем путь к изображению и кнопку выбора только если опция включена
+                          if (settings.useBackgroundImage)
+                            ListTile(
+                              title: const Text('Фоновое изображение'),
+                              subtitle: Text(
+                                settings.backgroundImagePath.isEmpty 
+                                  ? 'Изображение не выбрано' 
+                                  : settings.backgroundImagePath
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.folder_open),
+                                onPressed: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.image,
+                                    allowedExtensions: ['jpg', 'jpeg', 'png'],
+                                  );
+                                  if (result != null) {
+                                    setState(() {
+                                      settings = settings.copyWith(
+                                        backgroundImagePath: result.files.single.path!,
+                                      );
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
                           // Добавляем настройки чередования строк
                           const Divider(),
                           SwitchListTile(
-                            title: const Text('Чередование цветов строк'),
+                            title: const Text(
+                              'Чередование цветов строк',
+                              
+                            ),
+                            activeColor: const Color(0xFF3579A6),
                             value: settings.useAlternatingRowColors,
                             onChanged: (value) {
                               setState(() {
                                 settings = settings.copyWith(useAlternatingRowColors: value);
                               });
-                              settings.saveSettings();
+                              AppSettings.saveSettings(settings);
                             },
                           ),
                           if (settings.useAlternatingRowColors) ...[
                             ListTile(
-                              title: const Text('Цвет четных строк'),
+                              title: const Text(
+                                'Цвет четных строк',
+                                
+                              ),
                               trailing: GestureDetector(
                                 onTap: () async {
                                   final color = await showColorPicker(
@@ -634,7 +741,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                     setState(() {
                                       settings = settings.copyWith(evenRowColor: color);
                                     });
-                                    settings.saveSettings();
+                                    AppSettings.saveSettings(settings);
                                   }
                                 },
                                 child: Container(
@@ -649,7 +756,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               ),
                             ),
                             ListTile(
-                              title: const Text('Цвет нечетных строк'),
+                              title: const Text(
+                                'Цвет нечетных строк',
+                                
+                              ),
                               trailing: GestureDetector(
                                 onTap: () async {
                                   final color = await showColorPicker(
@@ -660,7 +770,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                     setState(() {
                                       settings = settings.copyWith(oddRowColor: color);
                                     });
-                                    settings.saveSettings();
+                                    AppSettings.saveSettings(settings);
                                   }
                                 },
                                 child: Container(
@@ -681,15 +791,25 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                       ExpansionTile(
                         title: const Row(
                           children: [
-                            Icon(Icons.widgets),
+                            Icon(Icons.widgets, color: Color(0xFF3579A6)),
                             SizedBox(width: 10),
-                            Text('Виджеты', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              'Виджеты',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                
+                              ),
+                            ),
                           ],
                         ),
                         children: [
                           // Управление видимостью виджетов
                           SwitchListTile(
-                            title: const Text('Логотип'),
+                            title: const Text(
+                              'Логотип',
+                              
+                            ),
+                            activeColor: const Color(0xFF3579A6),
                             value: showLogo,
                             onChanged: (value) {
                               setState(() {
@@ -698,8 +818,35 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               _saveSettings();
                             },
                           ),
+                          if (showLogo) ...[
+                            const Divider(),
+                            // Добавляем выбор типа контента
+                              ListTile(
+                                title: const Text('Выбрать изображение'),
+                                subtitle: Text(settings.logoPath.isEmpty ? 'Логотип не выбран' : settings.logoPath),
+                                trailing: const Icon(Icons.folder_open),
+                                onTap: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.image,
+                                    allowedExtensions: ['png', 'jpg', 'jpeg'],
+                                  );
+                                  if (result != null) {
+                                    setState(() {
+                                      settings = settings.copyWith(
+                                        logoPath: result.files.single.path!,
+                                      );
+                                      AppSettings.saveSettings(settings); // Добавляем сохранение
+                                    });
+                                  }
+                                },
+                      ),
+                      ],
                           SwitchListTile(
-                            title: const Text('Программа лояльности'),
+                            title: const Text(
+                              'Программа лояльности',
+                              
+                            ),
+                            activeColor: const Color(0xFF3579A6),
                             value: showLoyaltyWidget,
                             onChanged: (value) {
                               setState(() {
@@ -709,7 +856,11 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                             },
                           ),
                           SwitchListTile(
-                            title: const Text('QR-код оплаты'),
+                            title: const Text(
+                              'QR-код оплаты',
+                             
+                            ),
+                            activeColor: const Color(0xFF3579A6),
                             value: showPaymentQR,
                             onChanged: (value) {
                               setState(() {
@@ -719,7 +870,11 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                             },
                           ),
                           SwitchListTile(
-                            title: const Text('Итоговая сумма'),
+                            title: const Text(
+                              'Итоговая сумма',
+                              
+                            ),
+                            activeColor: const Color(0xFF3579A6),
                             value: showSummary,
                             onChanged: (value) {
                               setState(() {
@@ -729,7 +884,11 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                             },
                           ),
                           SwitchListTile(
-                            title: const Text('Боковая реклама'),
+                            title: const Text(
+                              'Боковая реклама',
+                              
+                            ),
+                            activeColor: const Color(0xFF3579A6),
                             value: showSideAdvert,
                             onChanged: (value) {
                               setState(() {
@@ -742,12 +901,27 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                             const Divider(),
                             // Добавляем выбор типа контента
                             ListTile(
-                              title: const Text('Тип контента'),
+                              title: const Text(
+                                'Тип контента',
+                                
+                              ),
                               trailing: DropdownButton<String>(
                                 value: settings.sideAdvertType,
                                 items: const [
-                                  DropdownMenuItem(value: 'video', child: Text('Видео')),
-                                  DropdownMenuItem(value: 'image', child: Text('Изображение')),
+                                  DropdownMenuItem(
+                                    value: 'video',
+                                    child: Text(
+                                      'Видео',
+                                     
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'image',
+                                    child: Text(
+                                      'Изображение',
+                                      
+                                    ),
+                                  ),
                                 ],
                                 onChanged: (String? value) {
                                   if (value != null) {
@@ -759,7 +933,11 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               ),
                             ),
                             SwitchListTile(
-                              title: const Text('Контент из интернета'),
+                              title: const Text(
+                                'Контент из интернета',
+                               
+                              ),
+                              activeColor: const Color(0xFF3579A6),
                               value: isSideAdvertFromInternet,
                               onChanged: (value) {
                                 setState(() {
@@ -785,7 +963,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               ),
                             if (!isSideAdvertFromInternet)
                               ListTile(
-                                title: Text('Выбрать ${settings.sideAdvertType == 'video' ? 'видео' : 'изображение'}'),
+                                title: Text(
+                                  'Выбрать ${settings.sideAdvertType == 'video' ? 'видео' : 'изображение'}',
+                                  style: const TextStyle(color: Color(0xFF2D5456)),
+                                ),
                                 trailing: const Icon(Icons.folder_open),
                                 onTap: () async {
                                   final result = await FilePicker.platform.pickFiles(
@@ -809,20 +990,28 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                           ExpansionTile(
                             title: const Row(
                               children: [
-                                Icon(Icons.palette),
+                                Icon(Icons.palette, color: Color(0xFF3579A6)),
                                 SizedBox(width: 10),
-                                Text('Цвета виджетов', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  'Цвета виджетов',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    
+                                  ),
+                                ),
                               ],
                             ),
                             children: [
                               // Общий цвет для всех виджетов
                               ListTile(
-                                title: const Text('Общий цвет виджетов'),
+                                title: const Text(
+                                  'Общий цвет виджетов',
+                                ),
                                 trailing: Container(
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: settings.backgroundColor,
+                                    color: settings.commonWidgetColor, // Исправляем на правильный параметр
                                     border: Border.all(color: Colors.black),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
@@ -837,10 +1026,13 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                               title: const Text('Выберите цвет'),
                                               content: SingleChildScrollView(
                                                 child: ColorPicker(
-                                                  pickerColor: settings.backgroundColor,
+                                                  pickerColor: settings.commonWidgetColor, // Используем правильный параметр
                                                   onColorChanged: (Color color) {
                                                     setState(() {
-                                                      settings = _updateSettings(backgroundColor: color);
+                                                      settings = _updateSettings(
+                                                        commonWidgetColor: color, // Обновляем правильный параметр
+                                                        useCommonWidgetColor: true, // Включаем использование общего цвета
+                                                      );
                                                     });
                                                   },
                                                 ),
@@ -865,7 +1057,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               // Индивидуальные цвета
                               if (showLoyaltyWidget)
                                 ListTile(
-                                  title: const Text('Цвет виджета лояльности'),
+                                  title: const Text(
+                                    'Цвет виджета лояльности',
+                                    
+                                  ),
                                   trailing: Container(
                                     width: 24,
                                     height: 24,
@@ -890,7 +1085,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                 ),
                               if (showPaymentQR)
                                 ListTile(
-                                  title: const Text('Цвет QR-кода'),
+                                  title: const Text(
+                                    'Цвет QR-кода',
+                                    
+                                  ),
                                   trailing: Container(
                                     width: 24,
                                     height: 24,
@@ -915,7 +1113,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                 ),
                               if (showSummary)
                                 ListTile(
-                                  title: const Text('Цвет итогов'),
+                                  title: const Text(
+                                    'Цвет итогов',
+                                    
+                                  ),
                                   trailing: Container(
                                     width: 24,
                                     height: 24,
@@ -939,7 +1140,10 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                   },
                                 ),
                               ListTile(
-                                title: const Text('Цвет таблицы товаров'),
+                                title: const Text(
+                                  'Цвет таблицы товаров',
+                                  
+                                ),
                                 trailing: Container(
                                   width: 24,
                                   height: 24,
@@ -968,15 +1172,20 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                           ExpansionTile(
                             title: const Row(
                               children: [
-                                Icon(Icons.text_fields),
+                                Icon(Icons.text_fields, color: Color(0xFF3579A6)),
                                 SizedBox(width: 10),
-                                Text('Настройки шрифта', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  'Настройки шрифта',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    ),
+                                ),
                               ],
                             ),
                             children: [
                               // Загрузка пользовательского шрифта
                               ListTile(
-                                title: const Text('Загрузить шрифт'),
+                                title: const Text('Загрузить шрифт'), 
                                 subtitle: Text(settings.customFontPath.isEmpty 
                                   ? 'Используется системный шрифт' 
                                   : settings.customFontPath.split('/').last),
@@ -1043,6 +1252,8 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                               ),
                               ListTile(
                                 title: const Text('Общий цвет шрифта'),
+                                  
+                                
                                 subtitle: const Text('Применится ко всем виджетам'),
                                 trailing: Container(
                                   width: 24,
@@ -1081,53 +1292,62 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                       ExpansionTile(
                         title: const Row(
                           children: [
-                            Icon(Icons.video_library),
+                            Icon(Icons.video_library, color: Color(0xFF3579A6)),
                             SizedBox(width: 10),
-                            Text('Реклама', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              'Основная реклама',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                
+                              ),
+                            ),
                           ],
                         ),
                         children: [
-                          // Реклама без продаж
+                          // Показывать рекламу без продаж
                           SwitchListTile(
                             title: const Text('Показывать рекламу без продаж'),
-                            value: showAdvertWithoutSales,
+                            activeColor: const Color(0xFF3579A6),
+                            value: settings.showAdvertWithoutSales,
                             onChanged: (bool value) {
                               setState(() {
-                                showAdvertWithoutSales = value;
+                                settings = _updateSettings(
+                                  showAdvertWithoutSales: value,
+                                );
                               });
-                              _saveSettings();
                             },
                           ),
-                          if (showAdvertWithoutSales) ...[
+                          if (settings.showAdvertWithoutSales) ...[
                             SwitchListTile(
                               title: const Text('Видео из интернета'),
-                              value: isVideoFromInternet,
+                              activeColor: const Color(0xFF3579A6),
+                              value: settings.isAdvertFromInternet,
                               onChanged: (bool value) {
                                 setState(() {
-                                  isVideoFromInternet = value;
+                                  settings = _updateSettings(
+                                    isAdvertFromInternet: value,
+                                  );
                                 });
-                                _saveSettings();
                               },
                             ),
-                            if (isVideoFromInternet)
+                            if (settings.isAdvertFromInternet)
                               ListTile(
                                 title: TextField(
-                                  controller: TextEditingController(text: videoUrl),
-                                  decoration: const InputDecoration(
-                                    labelText: 'URL видео',
-                                  ),
+                                  decoration: const InputDecoration(labelText: 'URL видео'),
+                                  controller: TextEditingController(text: settings.advertVideoUrl),  // Используем controller вместо value
                                   onChanged: (value) {
                                     setState(() {
-                                      videoUrl = value;
+                                      settings = _updateSettings(advertVideoUrl: value);
                                     });
-                                    _saveSettings();
                                   },
                                 ),
                               )
                             else
                               ListTile(
                                 title: const Text('Выбрать видео'),
-                                subtitle: Text(settings.sideAdvertVideoPath.isEmpty ? 'Видео не выбрано' : settings.sideAdvertVideoPath),
+                                subtitle: Text(
+                                  settings.advertVideoPath.isEmpty ? 'Видео не выбрано' : settings.advertVideoPath
+                                ),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.folder_open),
                                   onPressed: () async {
@@ -1135,27 +1355,11 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                                       type: FileType.video,
                                     );
                                     if (result != null) {
-                                      final path = result.files.single.path!;
-                                      log('Selected video path: $path');
-                                      
                                       setState(() {
-                                        settings = settings.copyWith(
-                                          showSideAdvert: true,
-                                          sideAdvertType: 'video',
-                                          sideAdvertVideoPath: path,
-                                          sideAdvertPath: path,
-                                          isSideAdvertContentFromInternet: false,
+                                        settings = _updateSettings(
+                                          advertVideoPath: result.files.single.path!,
                                         );
                                       });
-                                      
-                                      // Сразу сохраняем настройки
-                                      await settings.saveSettings();
-                                      
-                                      // Проверяем сохраненные значения
-                                      log('After save:');
-                                      log('Type: ${settings.sideAdvertType}');
-                                      log('VideoPath: ${settings.sideAdvertVideoPath}');
-                                      log('Path: ${settings.sideAdvertPath}');
                                     }
                                   },
                                 ),
@@ -1165,31 +1369,41 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                       ),
                       // Безопасность
                       ExpansionTile(
-                        title: const Text('Безопасность', style: TextStyle(fontWeight: FontWeight.bold)),
-                        leading: const Icon(Icons.security),
+                        title: const Text(
+                          'Безопасность',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            
+                          ),
+                        ),
+                        leading: const Icon(Icons.security, color: Color(0xFF3579A6)),
                         children: [
-        SwitchListTile(
-                            title: const Text('Использовать таймер неактивности'),
+                          SwitchListTile(
+                            title: const Text(
+                              'Использовать таймер неактивности',
+                            ),
+                            activeColor: const Color(0xFF3579A6), // Изменили с 0xFF1B354F на 0xFF3579A6
                             value: useInactivityTimer,
-          onChanged: (value) {
-            setState(() {
+                            onChanged: (value) {
+                              setState(() {
                                 useInactivityTimer = value;
-            });
-            _saveSettings();
+                              });
+                              _saveSettings();
                             },
                           ),
                           if (useInactivityTimer)
                             ListTile(
                               title: TextField(
-          decoration: const InputDecoration(
+                                decoration: const InputDecoration(
                                   labelText: 'Время неактивности (сек)',
-          ),
+                                ),
+                                
                                 keyboardType: TextInputType.number,
                                 onChanged: (value) {
-            setState(() {
+                                  setState(() {
                                     inactivityTimeout = int.tryParse(value) ?? 50;
-            });
-            _saveSettings();
+                                  });
+                                  _saveSettings();
                                 },
                                 controller: TextEditingController(text: inactivityTimeout.toString()),
                               ),
@@ -1199,22 +1413,24 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                       // Общие настройки
                       ExpansionTile(
                         title: const Text('Общие настройки', style: TextStyle(fontWeight: FontWeight.bold)),
-                        leading: const Icon(Icons.settings),
+                        leading: const Icon(Icons.settings, color: const Color(0xFF3579A6)),
                         children: [
                           SwitchListTile(
                             title: const Text('Автозапуск'),
+                            activeColor: const Color(0xFF3579A6),
                             subtitle: const Text('Запускать приложение при старте Windows'),
                             value: autoStart,
                             onChanged: _updateAutoStart,
                           ),
                           SwitchListTile(
                             title: const Text('Темная тема'),
+                            activeColor: const Color(0xFF3579A6),
                             value: settings.isDarkTheme,
                             onChanged: (value) {
                               setState(() {
                                 settings = settings.copyWith(isDarkTheme: value);
                               });
-                              settings.saveSettings();
+                              AppSettings.saveSettings(settings);
                             },
                           ),
                         ],
@@ -1222,7 +1438,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                       // Горячие клавиши
                       ExpansionTile(
                         title: const Text('Горячие клавиши', style: TextStyle(fontWeight: FontWeight.bold)),
-                        leading: const Icon(Icons.keyboard),
+                        leading: const Icon(Icons.keyboard, color: const Color(0xFF3579A6)),
                         children: [
                           _buildHotkeysSection(),
                         ],
@@ -1232,10 +1448,11 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                         title: const Text('Настройки подключения', 
                           style: TextStyle(fontWeight: FontWeight.bold)
                         ),
-                        leading: const Icon(Icons.settings_ethernet),
+                        leading: const Icon(Icons.settings_ethernet, color: const Color(0xFF3579A6)),
                         children: [
                           SwitchListTile(
                             title: const Text('Использовать 1С 8.5'),
+                            activeColor: const Color(0xFF3579A6),
                             subtitle: const Text('Работа напрямую через WebSocket'),
                             value: isVersion85,
                             onChanged: (value) {
@@ -1311,23 +1528,33 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.file_upload),
-                              label: const Text('Экспорт'),
+                              icon: const Icon(Icons.file_upload, color: Color(0xFF3579A6)),
+                              label: const Text(
+                                'Экспорт',
+                                style: TextStyle(color: Color(0xFF3579A6)),
+                              ),
                               onPressed: _exportSettings,
                             ),
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.file_download),
-                              label: const Text('Импорт'),
+                              icon: const Icon(Icons.file_download, color: Color(0xFF3579A6)),
+                              label: const Text(
+                                'Импорт',
+                                style: TextStyle(color: Color(0xFF3579A6)),
+                              ),
                               onPressed: _importSettings,
                             ),
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Сброс'),
+                              icon: const Icon(Icons.refresh, color: Color(0xFF3579A6)),
+                              label: const Text(
+                                'Сброс',
+                                style: TextStyle(color: Color(0xFF3579A6)),
+                              ),
                               onPressed: _resetSettings,
                             ),
                           ],
                         ),
                       ),
+                      
                     ],
                   ),
                 ),
@@ -1348,46 +1575,44 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
   List<Widget> _buildPreviewWidgets(double scale, Size selectedSize) {
     List<Widget> widgets = [];
     
-    // Добавляем логотип только если он включен
-    if (showLogo && logoPath.isNotEmpty && File(logoPath).existsSync()) {
-      final pos = logoPosition;
+    // Добавляем логотип
+    if (settings.showLogo && settings.logoPath.isNotEmpty && File(settings.logoPath).existsSync()) {
+      final pos = widgetPositions['logo']!; // Используем позицию из widgetPositions
       widgets.add(
         Positioned(
           left: pos['x']! * scale,
           top: pos['y']! * scale,
+          width: pos['w']! * scale,
+          height: pos['h']! * scale,
           child: GestureDetector(
             onPanUpdate: (details) {
               setState(() {
-                pos['x'] = (pos['x']! + details.delta.dx / scale)
+                final newPos = Map<String, double>.from(pos);
+                newPos['x'] = (pos['x']! + details.delta.dx / scale)
                     .clamp(0.0, selectedSize.width - pos['w']!);
-                pos['y'] = (pos['y']! + details.delta.dy / scale)
+                newPos['y'] = (pos['y']! + details.delta.dy / scale)
                     .clamp(0.0, selectedSize.height - pos['h']!);
+                widgetPositions['logo'] = newPos;
+                _saveSettings();
               });
-              _saveSettings();
             },
-            child: Stack(
-              children: [
-                Container(
-                  width: pos['w']! * scale,
-                  height: pos['h']! * scale,
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: FileImage(File(logoPath)),
-                      fit: BoxFit.contain,
-                    ),
-                    border: Border.all(
-                      color: Colors.blue.withOpacity(0.5),
-                      width: 2,
-                    ),
-                  ),
+            child: Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: FileImage(File(settings.logoPath)),
+                  fit: BoxFit.contain,
                 ),
-              ],
+                border: Border.all(
+                  color: Colors.blue.withOpacity(0.5),
+                  width: 2,
+                ),
+              ),
             ),
           ),
         ),
       );
     }
-
+    
     // Добавляем основные виджеты с учетом их видимости
     for (var type in draggableWidgets) {
       if (type == 'loyalty' && !showLoyaltyWidget) continue;
@@ -1620,6 +1845,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
         'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
         'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
         'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
+        'logo': {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0}, // Добавляем позицию для логотипа
       });
     });
     _saveSettings();
@@ -1627,54 +1853,37 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
 
   Future<void> _exportSettings() async {
     try {
-      final settings = {
-        'videoFilePath': videoFilePath,
-        'videoUrl': videoUrl,
-        'isVideoFromInternet': isVideoFromInternet,
-        'showLoyaltyWidget': showLoyaltyWidget,
-        'backgroundColor': backgroundColor.value,
-        'borderColor': borderColor.value,
-        'backgroundImagePath': backgroundImagePath,
-        'useBackgroundImage': useBackgroundImage,
-        'logoPath': logoPath,
-        'showAdvertWithoutSales': showAdvertWithoutSales,
-        'showSideAdvert': showSideAdvert,
-        'sideAdvertVideoPath': sideAdvertVideoPath,
-        'isSideAdvertFromInternet': isSideAdvertFromInternet,
-        'sideAdvertVideoUrl': sideAdvertVideoUrl,
-        'widgetPositions': widgetPositions,
-        'logoPosition': logoPosition,
-        'useInactivityTimer': useInactivityTimer,
-        'inactivityTimeout': inactivityTimeout,
-        'showLogo': showLogo,
-        'showPaymentQR': showPaymentQR,
-        'showSummary': showSummary,
-        'webSocketUrl': webSocketUrl,
-        'httpUrl': httpUrl,
-        'isVersion85': isVersion85,
-        'webSocketPort': webSocketPort,
-        'httpPort': httpPort,
-      };
-
-      String jsonString = jsonEncode(settings);
+      // Загружаем текущие настройки из файла
+      final currentSettings = await AppSettings.loadSettings();
       
+      // Получаем путь для сохранения
       final result = await FilePicker.platform.saveFile(
         dialogTitle: 'Сохранить настройки',
         fileName: 'settings.json',
-        type: FileType.custom,
         allowedExtensions: ['json'],
+        type: FileType.custom,
       );
 
       if (result != null) {
-        await File(result).writeAsString(jsonString);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Настройки успешно сохранены')),
-        );
+        // Конвертируем настройки в JSON
+        final jsonSettings = jsonEncode(currentSettings.toJson());
+        
+        // Сохраняем в выбранный файл
+        await File(result).writeAsString(jsonSettings);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Настройки успешно экспортированы')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка при сохранении настроек: $e')),
-      );
+      log('Error exporting settings: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ошибка при экспорте настроек')),
+        );
+      }
     }
   }
 
@@ -1688,52 +1897,36 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       if (result != null) {
         final file = File(result.files.single.path!);
         final jsonString = await file.readAsString();
-        final settings = jsonDecode(jsonString);
-
+        final importedSettings = jsonDecode(jsonString);
+        
+        // Создаем объект AppSettings вместо Settings
+        final newSettings = AppSettings.fromJson(importedSettings);
+        
+        await AppSettings.saveSettings(newSettings);
+        
         setState(() {
-          videoFilePath = settings['videoFilePath'] ?? '';
-          videoUrl = settings['videoUrl'] ?? '';
-          isVideoFromInternet = settings['isVideoFromInternet'] ?? true;
-          showLoyaltyWidget = settings['showLoyaltyWidget'] ?? true;
-          backgroundColor = Color(settings['backgroundColor'] ?? Colors.white.value);
-          borderColor = Color(settings['borderColor'] ?? Colors.black.value);
-          backgroundImagePath = settings['backgroundImagePath'] ?? '';
-          useBackgroundImage = settings['useBackgroundImage'] ?? false;
-          logoPath = settings['logoPath'] ?? '';
-          showAdvertWithoutSales = settings['showAdvertWithoutSales'] ?? true;
-          showSideAdvert = settings['showSideAdvert'] ?? false;
-          sideAdvertVideoPath = settings['sideAdvertVideoPath'] ?? '';
-          isSideAdvertFromInternet = settings['isSideAdvertFromInternet'] ?? true;
-          sideAdvertVideoUrl = settings['sideAdvertVideoUrl'] ?? '';
-          widgetPositions.clear();
-          final Map<String, dynamic> positions = settings['widgetPositions'] ?? {};
-          widgetPositions.addAll(Map<String, Map<String, double>>.from(positions));
-          
-          final Map<String, dynamic> defaultLogoPos = {
-            'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0,
-          };
-          logoPosition = Map<String, double>.from(settings['logoPosition'] ?? defaultLogoPos);
-          useInactivityTimer = settings['useInactivityTimer'] ?? true;
-          inactivityTimeout = settings['inactivityTimeout'] ?? 50;
-          showLogo = settings['showLogo'] ?? true;
-          showPaymentQR = settings['showPaymentQR'] ?? true;
-          showSummary = settings['showSummary'] ?? true;
-          webSocketUrl = settings['webSocketUrl'] ?? 'localhost';
-          httpUrl = settings['httpUrl'] ?? 'localhost';
-          isVersion85 = settings['isVersion85'] ?? false;
-          webSocketPort = settings['webSocketPort'] ?? 4002;
-          httpPort = settings['httpPort'] ?? 4001;
+          settings = newSettings;
+          _loadSettings();
         });
 
-        _saveSettings();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Настройки успешно загружены')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Настройки успешно импортированы')),
+          );
+          
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LaunchWindow()),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка при загрузке настроек: $e')),
-      );
+      log('Error importing settings: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ошибка при импорте настроек')),
+        );
+      }
     }
   }
 
@@ -1777,13 +1970,13 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
             y1 + h1 > y2);
   }
 
-  // Добавим метод для получения размеров из строки разрешения
+  // метод для получения размеров из строки разрешения
   Size _getSelectedSize() {
   return previewSize; // Используем актуальные размеры из previewSize
 }
 
 
-  // Добавим метод для пересчета позиций виджетов
+  // метод для пересчета позиций виджетов
   void _adjustWidgetPositions() {
     final selectedSize = _getSelectedSize();
     
@@ -1857,9 +2050,6 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
 
     final scale = math.min(containerWidth / selectedSize.width, containerHeight / selectedSize.height);
 
-    final previewWidth = selectedSize.width * scale;
-    final previewHeight = selectedSize.height * scale;
-
     return Column(
       children: [
         const Text('Предварительный просмотр', 
@@ -1871,21 +2061,33 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
             constrained: false,
             child: Center(
               child: Container(
-                width: previewWidth,
-                height: previewHeight,
+                width: selectedSize.width * scale,
+                height: selectedSize.height * scale,
                 decoration: BoxDecoration(
-                  color: useBackgroundImage ? null : backgroundColor,
-                  border: Border.all(color: borderColor, width: 2),
-                  image: useBackgroundImage && backgroundImagePath.isNotEmpty && 
-                         File(backgroundImagePath).existsSync()
-                    ? DecorationImage(
-                        image: FileImage(File(backgroundImagePath)),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+                  color: settings.useBackgroundImage ? null : settings.backgroundColor,
+                  border: Border.all(color: settings.borderColor, width: 2),
+                  image: settings.useBackgroundImage && settings.backgroundImagePath.isNotEmpty && 
+                         File(settings.backgroundImagePath).existsSync()
+                  ? DecorationImage(
+                      image: FileImage(File(settings.backgroundImagePath)),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
                 ),
                 child: Stack(
-                  children: _buildPreviewWidgets(scale, selectedSize),
+                  children: [
+                    _buildPreviewWidget('items', scale),
+                    if (settings.showLoyaltyWidget)
+                      _buildPreviewWidget('loyalty', scale),
+                    if (settings.showPaymentQR)  
+                      _buildPreviewWidget('payment', scale),
+                    if (settings.showSummary)    
+                      _buildPreviewWidget('summary', scale),
+                    if (settings.showSideAdvert)
+                      _buildPreviewWidget('sideAdvert', scale),
+                    if (settings.showLogo && settings.logoPath.isNotEmpty && File(settings.logoPath).existsSync())
+                      _buildPreviewLogo(scale),
+                  ],
                 ),
               ),
             ),
@@ -1941,7 +2143,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                 settings.closeMainWindowHotkey = newHotkey;
               }
             });
-            settings.saveSettings(); // Сохраняем изменения
+            AppSettings.saveSettings(settings); // Сохраняем изменения
           }
         },
       ),
@@ -2048,44 +2250,67 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
         children: [
           Icon(Icons.video_library),
           SizedBox(width: 10),
-          Text('Реклама'),
+          Text('Основная реклама'),
         ],
       ),
       children: [
         // Показывать рекламу без продаж
         SwitchListTile(
           title: const Text('Показывать рекламу без продаж'),
-          value: showAdvertWithoutSales,
+          activeColor: const Color(0xFF3579A6),
+          value: settings.showAdvertWithoutSales,
           onChanged: (bool value) {
             setState(() {
-              showAdvertWithoutSales = value;
+              settings = _updateSettings(
+                showAdvertWithoutSales: value,
+              );
             });
-            _saveSettings();
           },
         ),
-        if (showAdvertWithoutSales) ...[
+        if (settings.showAdvertWithoutSales) ...[
           SwitchListTile(
             title: const Text('Видео из интернета'),
-            value: isVideoFromInternet,
+            activeColor: const Color(0xFF3579A6),
+            value: settings.isAdvertFromInternet,
             onChanged: (bool value) {
               setState(() {
-                isVideoFromInternet = value;
+                settings = _updateSettings(
+                  isAdvertFromInternet: value,
+                );
               });
-              _saveSettings();
             },
           ),
-          if (isVideoFromInternet)
+          if (settings.isAdvertFromInternet)
             ListTile(
               title: TextField(
-                controller: TextEditingController(text: videoUrl),
-                decoration: const InputDecoration(
-                  labelText: 'URL видео',
-                ),
+                decoration: const InputDecoration(labelText: 'URL видео'),
+                controller: TextEditingController(text: settings.advertVideoUrl),  // Используем controller вместо value
                 onChanged: (value) {
                   setState(() {
-                    videoUrl = value;
+                    settings = _updateSettings(advertVideoUrl: value);
                   });
-                  _saveSettings();
+                },
+              ),
+            )
+          else
+            ListTile(
+              title: const Text('Выбрать видео'),
+              subtitle: Text(
+                settings.advertVideoPath.isEmpty ? 'Видео не выбрано' : settings.advertVideoPath
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.folder_open),
+                onPressed: () async {
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.video,
+                  );
+                  if (result != null) {
+                    setState(() {
+                      settings = _updateSettings(
+                        advertVideoPath: result.files.single.path!,
+                      );
+                    });
+                  }
                 },
               ),
             ),
@@ -2125,14 +2350,21 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
   }
 
   AppSettings _updateSettings({
-    bool? showSideAdvert,
-    bool? isSideAdvertFromInternet,
-    String? sideAdvertVideoPath,
-    String? sideAdvertPath,
-    String? sideAdvertVideoUrl,
+    String? logoPath,
+    String? advertVideoPath,
+    String? advertVideoUrl,
+    bool? useBackgroundImage,
+    String? backgroundImagePath,
+    bool? isAdvertFromInternet,
+    bool? showAdvertWithoutSales,
     String? sideAdvertType,
-    bool? isSideAdvertContentFromInternet,
-    String? sideAdvertUrl,
+    String? sideAdvertPath,
+    bool? showSideAdvert,
+    String? sideAdvertVideoPath,
+    bool? isSideAdvertFromInternet,
+    String? sideAdvertVideoUrl,
+    Color? commonWidgetColor,
+    bool? useCommonWidgetColor,
     Color? loyaltyWidgetColor,
     Color? paymentWidgetColor,
     Color? summaryWidgetColor,
@@ -2147,43 +2379,28 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
     Color? itemsFontColor,
     String? customFontPath,
     String? fontFamily,
-    Color? backgroundColor,
+    Map<String, Map<String, double>>? widgetPositions,
+    bool? showLogo,
+    bool? showPaymentQR,
+    bool? showSummary,
+    bool? showLoyaltyWidget,
   }) {
-    // Проверяем валидность URL или пути к файлу
-    if (sideAdvertUrl != null && sideAdvertUrl.isNotEmpty) {
-      log('Setting sideAdvertUrl: $sideAdvertUrl');
-    }
-    if (sideAdvertPath != null && sideAdvertPath.isNotEmpty) {
-      log('Setting sideAdvertPath: $sideAdvertPath');
-    }
-    
-    final newSettings = AppSettings(
-      
-      videoFilePath: settings.videoFilePath,
-      videoUrl: settings.videoUrl,
-      isVideoFromInternet: settings.isVideoFromInternet,
-      showLoyaltyWidget: settings.showLoyaltyWidget,
-      backgroundColor: backgroundColor ?? settings.backgroundColor,
-      borderColor: settings.borderColor,
-      backgroundImagePath: settings.backgroundImagePath,
-      useBackgroundImage: settings.useBackgroundImage,
-      logoPath: settings.logoPath,
-      showAdvertWithoutSales: settings.showAdvertWithoutSales,
+    final newSettings = settings.copyWith(
+      logoPath: logoPath ?? settings.logoPath,
+      advertVideoPath: advertVideoPath ?? settings.advertVideoPath,
+      advertVideoUrl: advertVideoUrl ?? settings.advertVideoUrl,
+      useBackgroundImage: useBackgroundImage ?? settings.useBackgroundImage,
+      backgroundImagePath: backgroundImagePath ?? settings.backgroundImagePath,
+      isAdvertFromInternet: isAdvertFromInternet ?? settings.isAdvertFromInternet,
+      showAdvertWithoutSales: showAdvertWithoutSales ?? settings.showAdvertWithoutSales,
+      sideAdvertType: sideAdvertType ?? settings.sideAdvertType,
+      sideAdvertPath: sideAdvertPath ?? settings.sideAdvertPath,
       showSideAdvert: showSideAdvert ?? settings.showSideAdvert,
       sideAdvertVideoPath: sideAdvertVideoPath ?? settings.sideAdvertVideoPath,
       isSideAdvertFromInternet: isSideAdvertFromInternet ?? settings.isSideAdvertFromInternet,
       sideAdvertVideoUrl: sideAdvertVideoUrl ?? settings.sideAdvertVideoUrl,
-      widgetPositions: widgetPositions,
-      logoPosition: settings.logoPosition,
-      selectedResolution: selectedResolution,
-      autoStart: settings.autoStart,
-      useInactivityTimer: settings.useInactivityTimer,
-      inactivityTimeout: settings.inactivityTimeout,
-      webSocketUrl: settings.webSocketUrl,
-      httpUrl: settings.httpUrl,
-      isVersion85: settings.isVersion85,
-      webSocketPort: settings.webSocketPort,
-      httpPort: settings.httpPort,
+      commonWidgetColor: commonWidgetColor ?? settings.commonWidgetColor,
+      useCommonWidgetColor: useCommonWidgetColor ?? settings.useCommonWidgetColor,
       loyaltyWidgetColor: loyaltyWidgetColor ?? settings.loyaltyWidgetColor,
       paymentWidgetColor: paymentWidgetColor ?? settings.paymentWidgetColor,
       summaryWidgetColor: summaryWidgetColor ?? settings.summaryWidgetColor,
@@ -2198,20 +2415,14 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       itemsFontColor: itemsFontColor ?? settings.itemsFontColor,
       customFontPath: customFontPath ?? settings.customFontPath,
       fontFamily: fontFamily ?? settings.fontFamily,
-      showLogo: settings.showLogo,
-      showPaymentQR: settings.showPaymentQR,
-      showSummary: settings.showSummary,
-      advertVideoPath: settings.advertVideoPath,
-      advertVideoUrl: settings.advertVideoUrl,
-      isAdvertFromInternet: settings.isAdvertFromInternet,
-      sideAdvertPath: sideAdvertPath ?? settings.sideAdvertPath,
-      sideAdvertType: sideAdvertType ?? settings.sideAdvertType,
-      isSideAdvertContentFromInternet: isSideAdvertContentFromInternet ?? settings.isSideAdvertContentFromInternet,
-      sideAdvertUrl: sideAdvertUrl ?? settings.sideAdvertUrl,
+      widgetPositions: widgetPositions ?? settings.widgetPositions,
+      showLogo: showLogo ?? settings.showLogo,
+      showPaymentQR: showPaymentQR ?? settings.showPaymentQR,
+      showSummary: showSummary ?? settings.showSummary,
+      showLoyaltyWidget: showLoyaltyWidget ?? settings.showLoyaltyWidget,
     );
 
-    newSettings.saveSettings();
-    
+    AppSettings.saveSettings(newSettings); // Автоматически сохраняем настройки
     return newSettings;
   }
 
@@ -2221,7 +2432,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
   }
 
   // В _SettingsWindowState добавим метод для сохранения настроек боковой рекламы
-  void _saveSideAdvertSettings() {
+  void _saveSideAdvertSettings() async {
     if (_selectedVideoPath.isEmpty) {
       log('Error: Selected video path is empty');
       return;
@@ -2230,12 +2441,12 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
     settings = settings.copyWith(
       showSideAdvert: true,
       sideAdvertType: 'video',
-      sideAdvertVideoPath: _selectedVideoPath,  // Устанавливаем путь к видео
-      sideAdvertPath: _selectedVideoPath,       // Устанавливаем общий путь
+      sideAdvertVideoPath: _selectedVideoPath,
+      sideAdvertPath: _selectedVideoPath,
       isSideAdvertContentFromInternet: false,
     );
     
-    settings.saveSettings();
+    await AppSettings.saveSettings(settings); // Исправлено здесь
   }
 
   String _selectedVideoPath = '';
@@ -2253,11 +2464,12 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       children: [
         SwitchListTile(
           title: const Text('Показывать боковую рекламу'),
+          activeColor: const Color(0xFF3579A6),
           value: settings.showSideAdvert,
           onChanged: (value) {
             setState(() {
               settings = settings.copyWith(showSideAdvert: value);
-              settings.saveSettings();  // Сохраняем изменения
+              AppSettings.saveSettings(settings); // И здесь
             });
           },
         ),
@@ -2286,7 +2498,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
     });
     
     // Сразу сохраняем настройки
-    await settings.saveSettings();
+    await AppSettings.saveSettings(settings);
     
     // Проверяем сохраненные значения
     log('After save:');
@@ -2317,7 +2529,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
                       isSideAdvertContentFromInternet: false,
                     );
                   });
-                  await settings.saveSettings();
+                  await AppSettings.saveSettings(settings);
                 }
               },
             ),
@@ -2351,6 +2563,134 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> {
       });
       _saveSettings();
     }
+  }
+
+  Widget _buildWidgetSettings() {
+    return ExpansionTile(
+      title: const Row(
+        children: [
+          Icon(Icons.widgets),
+          SizedBox(width: 10),
+          Text('Настройки виджетов'),
+        ],
+      ),
+      children: [
+        // Настройки логотипа
+        SwitchListTile(
+          title: const Text('Показывать логотип'),
+          activeColor: const Color(0xFF3579A6),
+          value: settings.showLogo,
+          onChanged: (value) {
+            setState(() {
+              settings = settings.copyWith(showLogo: value);
+              AppSettings.saveSettings(settings);
+            });
+          },
+        ),
+        if (settings.showLogo) ...[
+          const Divider(),
+          ListTile(
+            title: const Text('Выбрать изображение'),
+            subtitle: Text(settings.logoPath.isEmpty ? 'Логотип не выбран' : settings.logoPath),
+            trailing: const Icon(Icons.folder_open),
+            onTap: () async {
+              final result = await FilePicker.platform.pickFiles(
+                type: FileType.image,
+                allowedExtensions: ['png', 'jpg', 'jpeg'],
+              );
+              if (result != null) {
+                setState(() {
+                  settings = _updateSettings(
+                    logoPath: result.files.single.path!,
+                  );
+                });
+              }
+            },
+          ),
+        ],
+
+        // Остальные настройки виджетов
+        SwitchListTile(
+          title: const Text('Показывать QR-код оплаты'),
+          activeColor: const Color(0xFF3579A6),
+          value: settings.showPaymentQR,
+          onChanged: (value) {
+            setState(() {
+              settings = settings.copyWith(showPaymentQR: value);
+              AppSettings.saveSettings(settings);
+            });
+          },
+        ),
+        SwitchListTile(
+          title: const Text('Показывать итоги'),
+          activeColor: const Color(0xFF3579A6),
+          value: settings.showSummary,
+          onChanged: (value) {
+            setState(() {
+              settings = settings.copyWith(showSummary: value);
+              AppSettings.saveSettings(settings);
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  // В классе _SettingsWindowState добавим метод для предпросмотра логотипа
+  Widget _buildPreviewLogo(double scale) {
+    if (!settings.showLogo || settings.logoPath.isEmpty || !File(settings.logoPath).existsSync()) {
+      return const SizedBox.shrink();
+    }
+
+    final pos = Map<String, double>.from(widgetPositions['logo'] ?? {
+      'x': 10.0,
+      'y': 10.0,
+      'w': 100.0,
+      'h': 50.0,
+    });
+
+    return Positioned(
+      left: pos['x']! * scale,
+      top: pos['y']! * scale,
+      width: pos['w']! * scale,
+      height: pos['h']! * scale,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.move,
+        child: GestureDetector(
+          onPanUpdate: (details) {
+            setState(() {
+              pos['x'] = pos['x']! + details.delta.dx / scale;
+              pos['y'] = pos['y']! + details.delta.dy / scale;
+              widgetPositions['logo'] = pos;
+              settings = settings.copyWith(widgetPositions: widgetPositions);
+              AppSettings.saveSettings(settings);
+            });
+          },
+          child: CustomResizableWidget(
+            onResize: (dx, dy) {
+              setState(() {
+                pos['w'] = pos['w']! + dx / scale;
+                pos['h'] = pos['h']! + dy / scale;
+                widgetPositions['logo'] = pos;
+                settings = settings.copyWith(widgetPositions: widgetPositions);
+                AppSettings.saveSettings(settings);
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                image: DecorationImage(
+                  image: FileImage(File(settings.logoPath)),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

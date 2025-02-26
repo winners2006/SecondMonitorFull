@@ -125,6 +125,26 @@ class Settings {
 
   Color oddRowColor;  // Цвет нечетных строк
 
+  bool showLogo;  // Показать логотип
+
+  bool showPaymentQR;  // Показать QR-код оплаты
+
+  bool showSummary;  // Показать итоги
+
+  String webSocketUrl;  // URL WebSocket
+
+  String httpUrl;  // URL HTTP
+
+  bool isVersion85;  // Версия 8.5
+
+  int webSocketPort;  // Порт WebSocket
+
+  int httpPort;  // Порт HTTP
+
+  bool useInactivityTimer;  // Использовать таймер бездействия
+
+  int inactivityTimeout;  // Таймаут бездействия
+
 
 
   Settings({
@@ -202,6 +222,26 @@ class Settings {
     required this.evenRowColor,
 
     required this.oddRowColor,
+
+    required this.showLogo,
+
+    required this.showPaymentQR,
+
+    required this.showSummary,
+
+    required this.webSocketUrl,
+
+    required this.httpUrl,
+
+    required this.isVersion85,
+
+    required this.webSocketPort,
+
+    required this.httpPort,
+
+    required this.useInactivityTimer,
+
+    required this.inactivityTimeout,
 
   });
 
@@ -284,6 +324,26 @@ class Settings {
       evenRowColor: Color(json['evenRowColor'] ?? 0xFFFFFFFF),
 
       oddRowColor: Color(json['oddRowColor'] ?? 0xFFF5F5F5),
+
+      showLogo: json['showLogo'] ?? false,
+
+      showPaymentQR: json['showPaymentQR'] ?? false,
+
+      showSummary: json['showSummary'] ?? false,
+
+      webSocketUrl: json['webSocketUrl'] ?? '',
+
+      httpUrl: json['httpUrl'] ?? '',
+
+      isVersion85: json['isVersion85'] ?? false,
+
+      webSocketPort: json['webSocketPort'] ?? 0,
+
+      httpPort: json['httpPort'] ?? 0,
+
+      useInactivityTimer: json['useInactivityTimer'] ?? false,
+
+      inactivityTimeout: json['inactivityTimeout'] ?? 0,
 
     );
 
@@ -368,6 +428,26 @@ class Settings {
       'evenRowColor': evenRowColor.value,
 
       'oddRowColor': oddRowColor.value,
+
+      'showLogo': showLogo,
+
+      'showPaymentQR': showPaymentQR,
+
+      'showSummary': showSummary,
+
+      'webSocketUrl': webSocketUrl,
+
+      'httpUrl': httpUrl,
+
+      'isVersion85': isVersion85,
+
+      'webSocketPort': webSocketPort,
+
+      'httpPort': httpPort,
+
+      'useInactivityTimer': useInactivityTimer,
+
+      'inactivityTimeout': inactivityTimeout,
 
     };
 
@@ -623,35 +703,45 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
   // Загрузка настроек
 
   Future<void> _loadSettings() async {
+    try {
+      final loadedSettings = await AppSettings.loadSettings();
+      setState(() {
+        settings = loadedSettings;
+        
+        // Проверяем и инициализируем позиции виджетов если они пустые
+        if (settings.widgetPositions.isEmpty) {
+          settings = settings.copyWith(
+            widgetPositions: {
+              'loyalty': {'x': 0.0, 'y': 0.0, 'w': 150.0, 'h': 120.0},
+              'payment': {'x': 1130.0, 'y': 0.0, 'w': 150.0, 'h': 120.0},
+              'summary': {'x': 1130.0, 'y': 904.0, 'w': 150.0, 'h': 120.0},
+              'items': {'x': 200.0, 'y': 150.0, 'w': 880.0, 'h': 874.0},
+              'sideAdvert': {'x': 0.0, 'y': 150.0, 'w': 200.0, 'h': 874.0},
+              'logo': {'x': 10.0, 'y': 10.0, 'w': 100.0, 'h': 50.0},
+            },
+          );
+        }
 
-    settings = await AppSettings.loadSettings();
+        // Получаем размеры из настроек
+        final parts = settings.selectedResolution.split('x');
+        selectedSize = Size(
+          double.parse(parts[0]),
+          double.parse(parts[1])
+        );
+        
+        isLoading = false;
+      });
 
-    log('Loaded settings from file:');
-
-    log('Side Advert Video Path: ${settings.sideAdvertVideoPath}');
-
-    log('Show Side Advert: ${settings.showSideAdvert}');
-
-    log('Side Advert Type: ${settings.sideAdvertType}');
-
-    // Получаем размеры из настроек
-
-    final parts = settings.selectedResolution.split('x');
-
-    setState(() {
-
-      selectedSize = Size(
-
-        double.parse(parts[0]),
-
-        double.parse(parts[1])
-
-      );
-
-      isLoading = false;  // Устанавливаем флаг загрузки в false
-
-    });
-
+      // Сохраняем обновленные настройки
+      await AppSettings.saveSettings(settings);
+      
+      log('Settings loaded successfully');
+      log('Widget positions: ${settings.widgetPositions}');
+      
+    } catch (e, stack) {
+      log('Error loading settings: $e');
+      log('Stack trace: $stack');
+    }
   }
 
 
@@ -674,9 +764,9 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
 
   Future<void> _initializeVideo() async {
     try {
-      final videoPath = settings.isVideoFromInternet 
-          ? settings.videoUrl 
-          : settings.videoFilePath;
+      final videoPath = settings.isAdvertFromInternet 
+          ? settings.advertVideoUrl 
+          : settings.advertVideoPath;
       
       log('Инициализация видео. Путь: $videoPath, IsInternet: ${settings.isVideoFromInternet}');
 
@@ -1007,24 +1097,17 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
 
                         children: [
 
-                          if (settings.showLogo)
-
-                            _buildLogo(1.0),
-
+                          if (settings.showLogo && settings.logoPath.isNotEmpty && File(settings.logoPath).existsSync())
+                            _buildScaledWidget('logo', settings, 1.0, 1.0),
                           _buildScaledWidget('items', settings, 1.0, 1.0),
-
                           if (settings.showLoyaltyWidget)
-
                             _buildScaledWidget('loyalty', settings, 1.0, 1.0),
-
-                          _buildScaledWidget('payment', settings, 1.0, 1.0),
-
-                          _buildScaledWidget('summary', settings, 1.0, 1.0),
-
+                          if (settings.showPaymentQR)
+                            _buildScaledWidget('payment', settings, 1.0, 1.0),
+                          if (settings.showSummary)
+                            _buildScaledWidget('summary', settings, 1.0, 1.0),
                           if (settings.showSideAdvert)
-
                             _buildSideAdvert(),
-
                         ],
 
                       ),
@@ -1096,123 +1179,57 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
   // Построение масштабируемого виджета
 
   Widget _buildScaledWidget(String type, AppSettings settings, double scaleX, double scaleY) {
-
     final position = settings.widgetPositions[type];
-
-    if (position == null || position.isEmpty) return const SizedBox.shrink();
-
-
-
-    // QR-код показываем только при наличии данных
-
-    if (type == 'payment' && _paymentQRCode == null) {
-
-      return const SizedBox.shrink();
-
-    }
-
-
+    if (position == null) return const SizedBox.shrink();
 
     Widget content;
-
     switch (type) {
-
-      case 'loyalty':
-
-        content = Column(
-
-          mainAxisAlignment: MainAxisAlignment.center,
-
-          children: [
-
-            FittedBox(
-
-              fit: BoxFit.scaleDown,
-
-              child: Text(
-
-                'ПРОГРАММА ЛОЯЛЬНОСТИ',
-
-                style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
-
-              ),
-
+      case 'logo':
+        content = Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: FileImage(File(settings.logoPath)),
+              fit: BoxFit.contain,
             ),
-
-            const SizedBox(height: 8),
-
-            if (_loyaltyProgram != null) ...[
-
-              Expanded(
-
-                child: Column(
-
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-
-                  children: [
-
-                    FittedBox(
-
-                      fit: BoxFit.scaleDown,
-
-                      child: Text(
-
-                        'Уровень: ${_loyaltyProgram!.cardNumber}',
-
-                        style: _getWidgetTextStyle(type),
-
-                      ),
-
-                    ),
-
-                    FittedBox(
-
-                      fit: BoxFit.scaleDown,
-
-                      child: Text(
-
-                        'Баллы: ${_loyaltyProgram!.bonusBalance}',
-
-                        style: _getWidgetTextStyle(type),
-
-                      ),
-
-                    ),
-
-                    FittedBox(
-
-                      fit: BoxFit.scaleDown,
-
-                      child: Text(
-
-                        'До следующего уровня: 0',
-
-                        style: _getWidgetTextStyle(type),
-
-                      ),
-
-                    ),
-
-                    FittedBox(
-
-                      fit: BoxFit.scaleDown,
-
-                      child: Text(
-
-                        'Сгорание: 15 750 до 31.12.2025',
-
-                        style: _getWidgetTextStyle(type),
-
-                      ),
-
-                    ),
-
-                  ],
-
-                ),
-
+          ),
+        );
+        break;
+      case 'loyalty':
+        content = Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'ПРОГРАММА ЛОЯЛЬНОСТИ',
+                style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
               ),
-
+            ),
+            const SizedBox(height: 8),
+            if (_loyaltyProgram != null) ...[
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Уровень: ${_loyaltyProgram!.customerName}',
+                        style: _getWidgetTextStyle(type),
+                      ),
+                    ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Баллы: ${_loyaltyProgram!.bonusBalance}',
+                        style: _getWidgetTextStyle(type),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ] else
               Expanded(
                 child: Center(
@@ -1227,243 +1244,120 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
             ],
           );
         break;
-
-
-
       case 'payment':
-
         content = Center(
-
           child: _paymentQRCode != null
-
             ? QrImageView(
-
                 data: _paymentQRCode!.qrData,
-
                 version: QrVersions.auto,
-
                 size: position['w']! * 0.8, // 80% от ширины виджета
-
               )
-
             : const SizedBox.shrink(),
-
         );
-
         break;
-
-
-
       case 'summary':
-
         final double totalBeforeDiscount = _summary?.total ?? 0.0;
-
         final double discount = _summary?.discount ?? 0.0;
-
         final double finalAmount = totalBeforeDiscount - discount;
-
         
-
         content = Column(
-
           mainAxisAlignment: MainAxisAlignment.center,
-
           children: [
-
             FittedBox(
-
               fit: BoxFit.scaleDown,
-
               child: Text(
-
                 'ИТОГО',
-
                 style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
-
               ),
-
             ),
-
             const SizedBox(height: 8),
-
             Expanded(
-
               child: Column(
-
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-
                 children: [
-
                   FittedBox(
-
                     fit: BoxFit.scaleDown,
-
                     child: Text(
-
                       'Позиций: ${_checkItems.length}',
-
                       style: _getWidgetTextStyle(type),
-
                     ),
-
                   ),
-
                   if (_summary != null) ...[
-
                     FittedBox(
-
                       fit: BoxFit.scaleDown,
-
                       child: Text(
-
                         'Сумма: $totalBeforeDiscount',
-
                         style: _getWidgetTextStyle(type),
-
                       ),
-
                     ),
-
                     FittedBox(
-
                       fit: BoxFit.scaleDown,
-
                       child: Text(
-
                         'Скидка: $discount',
-
                         style: _getWidgetTextStyle(type),
-
                       ),
-
                     ),
-
                     FittedBox(
-
                       fit: BoxFit.scaleDown,
-
                       child: Text(
-
                         'К ОПЛАТЕ: $finalAmount',
-
                         style: _getWidgetTextStyle(type).copyWith(fontWeight: FontWeight.bold),
-
                       ),
-
                     ),
-
                   ],
-
                 ],
-
               ),
-
             ),
-
           ],
-
         );
-
         break;
-
-
-
       case 'items':
-
         content = _buildItemsWidget();
-
         break;
-
-
-
       default:
-
         content = Text(
-
           _getWidgetTitle(type),
-
           style: _getWidgetTextStyle(type),
-
         );
-
     }
-
-
 
     // Определяем цвет для каждого типа виджета
-
     Color widgetColor;
-
     switch (type) {
-
       case 'loyalty':
-
         widgetColor = settings.loyaltyWidgetColor;
-
         break;
-
       case 'payment':
-
         widgetColor = settings.paymentWidgetColor;
-
         break;
-
       case 'summary':
-
         widgetColor = settings.summaryWidgetColor;
-
         break;
-
       case 'items':
-
         widgetColor = settings.itemsWidgetColor;
-
         break;
-
       default:
-
         widgetColor = Colors.white;
-
     }
 
-
-
     return Positioned(
-
       left: position['x']! * scaleX,
-
       top: position['y']! * scaleY,
-
       width: position['w']! * scaleX,
-
       height: position['h']! * scaleY,
-
       child: Container(
-
-        clipBehavior: Clip.none,
-
+        clipBehavior: type == 'logo' ? Clip.antiAlias : Clip.none,
         decoration: BoxDecoration(
-
-          color: widgetColor,
-
-          border: Border.all(color: settings.borderColor),
-
-          borderRadius: BorderRadius.circular(8),
-
+          color: type == 'logo' ? Colors.transparent : widgetColor,
+          border: type == 'logo' ? null : Border.all(color: settings.borderColor),
+          borderRadius: type == 'logo' ? null : BorderRadius.circular(8),
         ),
-
         child: Padding(
-
-          padding: const EdgeInsets.all(12),
-
+          padding: type == 'logo' ? EdgeInsets.zero : const EdgeInsets.all(12),
           child: content,
-
         ),
-
       ),
-
     );
-
   }
 
 
@@ -1471,131 +1365,145 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
   // Построение списка товаров
 
   Widget _buildItemsWidget() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _getWidgetColor('items'),
-        border: Border.all(color: Colors.grey),
-      ),
-      child: Column(
-        children: [
+    return Column(
+      children: [
+        // Заголовок таблицы
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: settings.borderColor),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('№', style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              Expanded(
+                flex: 6,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('Наименование', style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('Кол-во', style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('Цена', style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('Сумма', style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Список товаров
+        Expanded(
+          child: ListView.builder(
+            itemCount: _checkItems.length,
+            itemBuilder: (context, index) {
+              final item = _checkItems[index];
+              return Container(
+                decoration: BoxDecoration(
+                  color: settings.useAlternatingRowColors 
+                    ? (index % 2 == 0 ? settings.evenRowColor : settings.oddRowColor)
+                    : Colors.transparent,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text('${index + 1}', style: _getWidgetTextStyle('items')),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 6,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(item.name, style: _getWidgetTextStyle('items')),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(_formatQuantity(item.quantity), 
+                          style: _getWidgetTextStyle('items')),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(_formatMoney(item.price), 
+                          style: _getWidgetTextStyle('items')),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(_formatMoney(item.amount), 
+                          style: _getWidgetTextStyle('items')),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // Итоги (если виджет итогов отключен)
+        if (!settings.showSummary && _summary != null)
           Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Colors.grey),
+                top: BorderSide(color: settings.borderColor),
               ),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Expanded(
-                  flex: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      '№',
-                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                Text(
+                  'Сумма: ${_formatMoney(_summary!.subtotal)} | ',
+                  style: _getWidgetTextStyle('items'),
                 ),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Наименование',
-                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                Text(
+                  'Скидка: ${_formatMoney(_summary!.discount)} | ',
+                  style: _getWidgetTextStyle('items'),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Кол-во',
-                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Цена',
-                      style: _getWidgetTextStyle('items').copyWith(fontWeight: FontWeight.bold),
-                    ),
+                Text(
+                  'ИТОГО: ${_formatMoney(_summary!.total)}',
+                  style: _getWidgetTextStyle('items').copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _checkItems.length,
-              itemBuilder: (context, index) {
-                final item = _checkItems[index];
-                return Container(
-                  decoration: BoxDecoration(
-                    color: settings.useAlternatingRowColors 
-                        ? (index % 2 == 0 ? settings.evenRowColor : settings.oddRowColor)
-                        : Colors.transparent,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: settings.borderColor.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            '${index + 1}',
-                            style: _getWidgetTextStyle('items'),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 4,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            item.name,
-                            style: _getWidgetTextStyle('items'),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            '${item.quantity}',
-                            style: _getWidgetTextStyle('items'),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            '${item.price}',
-                            style: _getWidgetTextStyle('items'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -1651,10 +1559,7 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
       width: pos['w']!,
       height: pos['h']!,
       child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: settings.borderColor),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: const BoxDecoration(),
         clipBehavior: Clip.antiAlias,
         child: content,
       ),
@@ -1913,7 +1818,7 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
       );
       
 
-      await settings.saveSettings();
+      await AppSettings.saveSettings(settings);
       
 
       if (context.mounted) {
@@ -2006,4 +1911,13 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsB
     }
   }
 
+  String _formatMoney(double value) {
+    return value.toStringAsFixed(2);
+  }
+
+  String _formatQuantity(double value) {
+    return value.truncateToDouble() == value 
+      ? value.toInt().toString() 
+      : value.toString();
+  }
 }

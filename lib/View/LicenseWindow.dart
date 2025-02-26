@@ -124,9 +124,12 @@ class _LicenseWindowState extends State<LicenseWindow> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _isActivating ? null : _activateLicense,
-              child: _isActivating 
+              child: _isActivating
                 ? const CircularProgressIndicator()
-                : const Text('Активировать лицензию'),
+                : Text(
+                    'Активировать лицензию',
+                    style: TextStyle(color: const Color(0xFF3579A6)),
+                  ),
             ),
             if (_licenseInfo == null) ...[
               const SizedBox(height: 16),
@@ -137,10 +140,10 @@ class _LicenseWindowState extends State<LicenseWindow> {
               const SizedBox(height: 8),
               ElevatedButton(
                 onPressed: _activateTrial,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                child: Text(
+                  'Активировать пробную версию',
+                  style: TextStyle(color: const Color(0xFF3579A6)),
                 ),
-                child: const Text('Активировать пробную версию'),
               ),
             ],
           ],
@@ -208,14 +211,16 @@ class _LicenseWindowState extends State<LicenseWindow> {
   }
 
   Future<void> _activateTrial() async {
-    final success = await LicenseManager.activateTrial();
-    if (mounted) {
-      if (success) {
+    try {
+      await LicenseManager.activateTrial();
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Пробный период активирован')),
         );
         Navigator.pop(context);
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Пробный период уже был использован')),
         );

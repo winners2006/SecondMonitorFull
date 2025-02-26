@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:second_monitor/View/WindowManager.dart';
 import 'package:second_monitor/View/second_monitor.dart';
-import 'package:second_monitor/Service/LicenseManager.dart';
 import 'package:second_monitor/View/LicenseCheckWidget.dart';
+import 'package:second_monitor/Service/WindowService.dart';
 
 class LaunchWindow extends LicenseCheckWidget {
   const LaunchWindow({super.key});
@@ -20,6 +20,7 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
   @override
   void initState() {
     super.initState();
+    WindowService.setupMainWindow();
     _loadAutoStartSetting();
     _initHotkeys();
   }
@@ -105,19 +106,19 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Запустить'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    icon: Icon(Icons.play_arrow, color: const Color(0xFF3579A6)),
+                    label: Text(
+                      'Запустить',
+                      style: TextStyle(color: const Color(0xFF3579A6)),
                     ),
                     onPressed: _launchApp,
                   ),
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.settings),
-                    label: const Text('Настройки'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    icon: Icon(Icons.settings, color: const Color(0xFF3579A6)),
+                    label: Text(
+                      'Настройки',
+                      style: TextStyle(color: const Color(0xFF3579A6)),
                     ),
                     onPressed: _openSettings,
                   ),

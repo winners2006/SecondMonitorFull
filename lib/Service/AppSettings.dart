@@ -124,6 +124,9 @@ class AppSettings {
 
   final Color oddRowColor;
 
+  final bool useCommonWidgetColor;
+  final Color commonWidgetColor;
+
 
 
   AppSettings({
@@ -248,6 +251,9 @@ class AppSettings {
 
     this.oddRowColor = const Color(0xFFF5F5F5),
 
+    this.useCommonWidgetColor = false,
+    this.commonWidgetColor = Colors.white,
+
   }) {
 
     this.videoFilePath = videoFilePath;
@@ -268,7 +274,7 @@ class AppSettings {
 
       final settingsFile = File('$appDataDir/settings.json');
 
-      
+
 
       if (await settingsFile.exists()) {
 
@@ -276,12 +282,12 @@ class AppSettings {
 
         final jsonData = jsonDecode(jsonString);
 
-        
+
 
         log('Loading settings from file:');
 
         log('sideAdvertType: ${jsonData['sideAdvertType']}');
-
+    
         log('sideAdvertPath: ${jsonData['sideAdvertPath']}');
 
         log('sideAdvertVideoPath: ${jsonData['sideAdvertVideoPath']}');
@@ -426,61 +432,44 @@ class AppSettings {
 
       oddRowColor: const Color(0xFFF5F5F5),
 
+      useCommonWidgetColor: false,
+      commonWidgetColor: Colors.white,
+
     );
 
   }
 
 
 
-  Future<void> saveSettings() async {
-
+  static Future<void> saveSettings(AppSettings settings) async {
     try {
-
-      final appDataDir = await _getAppDataPath();
-
-      final settingsFile = File('$appDataDir/settings.json');
+      final appDataPath = await _getAppDataPath();
+      final settingsFile = File('$appDataPath\\settings.json');
       
-
-      log('Attempting to save settings to: ${settingsFile.path}');
-      
-
-      // Создаем директорию, если её нет
-
+      // Создаем директорию если её нет
       if (!await settingsFile.parent.exists()) {
-
         await settingsFile.parent.create(recursive: true);
-
       }
+
+      final Map<String, dynamic> json = settings.toJson();
       
-
-      final Map<String, dynamic> jsonData = toJson();
-
-      final String jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
+      log('Saving settings:');
+      log('Path: $appDataPath\\settings.json');
+      log('VideoFilePath: ${json['videoFilePath']}');
       
-
-      // Записываем файл
-
-      await settingsFile.writeAsString(
-
-        jsonString,
-
-        mode: FileMode.writeOnly,
-
-        flush: true,
-
-      );
+      await settingsFile.writeAsString(jsonEncode(json));
       
-
-      log('Settings saved successfully');
-
-    } catch (e, stack) {
-
+      // Проверяем что файл создался
+      if (await settingsFile.exists()) {
+        final savedContent = await settingsFile.readAsString();
+        final savedJson = jsonDecode(savedContent);
+        log('Saved settings verification:');
+        log('VideoFilePath: ${savedJson['videoFilePath']}');
+      }
+    } catch (e) {
       log('Error saving settings: $e');
-
-      log('Stack trace: $stack');
-
+      log(e.toString());
     }
-
   }
 
 
@@ -621,7 +610,7 @@ class AppSettings {
 
       showLoyaltyWidget: json['showLoyaltyWidget'] ?? true,
 
-      backgroundColor: Color(json['backgroundColor'] ?? Colors.white.value),
+      backgroundColor: Color(json['backgroundColor'] ?? 0xFFFFFFFF),
 
       borderColor: Color(json['borderColor'] ?? Colors.black.value),
 
@@ -683,13 +672,13 @@ class AppSettings {
 
       isAdvertFromInternet: json['isAdvertFromInternet'] ?? true,
 
-      loyaltyWidgetColor: Color(json['loyaltyWidgetColor'] ?? Colors.white.value),
+      loyaltyWidgetColor: Color(json['loyaltyWidgetColor'] ?? 0xFFFFFFFF),
 
-      paymentWidgetColor: Color(json['paymentWidgetColor'] ?? Colors.white.value),
+      paymentWidgetColor: Color(json['paymentWidgetColor'] ?? 0xFFFFFFFF),
 
-      summaryWidgetColor: Color(json['summaryWidgetColor'] ?? Colors.white.value),
+      summaryWidgetColor: Color(json['summaryWidgetColor'] ?? 0xFFFFFFFF),
 
-      itemsWidgetColor: Color(json['itemsWidgetColor'] ?? Colors.white.value),
+      itemsWidgetColor: Color(json['itemsWidgetColor'] ?? 0xFFFFFFFF),
 
       loyaltyFontSize: json['loyaltyFontSize'] ?? 14.0,
 
@@ -723,6 +712,9 @@ class AppSettings {
 
       oddRowColor: Color(json['oddRowColor'] ?? 0xFFF5F5F5),
 
+      useCommonWidgetColor: json['useCommonWidgetColor'] ?? false,
+      commonWidgetColor: Color(json['commonWidgetColor'] ?? 0xFFFFFFFF),
+
     );
 
   }
@@ -730,128 +722,71 @@ class AppSettings {
 
 
   Map<String, dynamic> toJson() {
-
     final Map<String, dynamic> data = {
-
       'videoFilePath': videoFilePath,
-
       'videoUrl': videoUrl,
-
       'isVideoFromInternet': isVideoFromInternet,
-
       'showLoyaltyWidget': showLoyaltyWidget,
-
       'backgroundColor': backgroundColor.value,
-
       'borderColor': borderColor.value,
-
       'backgroundImagePath': backgroundImagePath,
-
       'useBackgroundImage': useBackgroundImage,
-
       'logoPath': logoPath,
-
       'showAdvertWithoutSales': showAdvertWithoutSales,
-
       'showSideAdvert': showSideAdvert,
-
       'sideAdvertType': sideAdvertType,
-
       'sideAdvertPath': sideAdvertPath,
-
       'sideAdvertVideoPath': sideAdvertType == 'video' ? sideAdvertPath : '',
-
       'isSideAdvertFromInternet': isSideAdvertFromInternet,
-
       'sideAdvertVideoUrl': sideAdvertVideoUrl,
-
       'widgetPositions': widgetPositions,
-
       'logoPosition': logoPosition,
-
       'selectedResolution': selectedResolution,
-
       'autoStart': autoStart,
-
       'useInactivityTimer': useInactivityTimer,
-
       'inactivityTimeout': inactivityTimeout,
-
       'openSettingsHotkey': openSettingsHotkey,
-
       'closeMainWindowHotkey': closeMainWindowHotkey,
-
       'showLogo': showLogo,
-
       'showPaymentQR': showPaymentQR,
-
       'showSummary': showSummary,
-
       'webSocketUrl': webSocketUrl,
-
       'httpUrl': httpUrl,
-
       'isVersion85': isVersion85,
-
       'webSocketPort': webSocketPort,
-
       'httpPort': httpPort,
-
       'advertVideoPath': advertVideoPath,
-
       'advertVideoUrl': advertVideoUrl,
-
       'isAdvertFromInternet': isAdvertFromInternet,
-
       'loyaltyWidgetColor': loyaltyWidgetColor.value,
-
       'paymentWidgetColor': paymentWidgetColor.value,
-
       'summaryWidgetColor': summaryWidgetColor.value,
-
       'itemsWidgetColor': itemsWidgetColor.value,
-
       'loyaltyFontSize': loyaltyFontSize,
-
       'paymentFontSize': paymentFontSize,
-
       'summaryFontSize': summaryFontSize,
-
       'itemsFontSize': itemsFontSize,
-
       'loyaltyFontColor': loyaltyFontColor.value,
-
       'paymentFontColor': paymentFontColor.value,
-
       'summaryFontColor': summaryFontColor.value,
-
       'itemsFontColor': itemsFontColor.value,
-
       'customFontPath': customFontPath,
-
       'fontFamily': fontFamily,
-
       'sideAdvertUrl': sideAdvertUrl,
-
       'isSideAdvertContentFromInternet': isSideAdvertContentFromInternet,
-
       'isDarkTheme': isDarkTheme,
-
       'useAlternatingRowColors': useAlternatingRowColors,
-
       'evenRowColor': evenRowColor.value,
-
       'oddRowColor': oddRowColor.value,
-
+      'useCommonWidgetColor': useCommonWidgetColor,
+      'commonWidgetColor': commonWidgetColor.value,
     };
     
-    log('Saving to JSON:');
-    log('Type: ${data['sideAdvertType']}');
-    log('VideoPath: ${data['sideAdvertVideoPath']}');
-    log('Path: ${data['sideAdvertPath']}');
+    log('Saving settings to JSON:');
+    log('videoFilePath: ${data['videoFilePath']}');
+    log('showAdvertWithoutSales: ${data['showAdvertWithoutSales']}');
     
     return data;
-
   }
 
 
@@ -938,6 +873,39 @@ class AppSettings {
 
     Color? oddRowColor,
 
+    bool? useCommonWidgetColor,
+    Color? commonWidgetColor,
+
+    bool? autoStart,
+
+    bool? useInactivityTimer,
+
+    int? inactivityTimeout,
+
+    String? webSocketUrl,
+
+    String? httpUrl,
+
+    bool? isVersion85,
+
+    int? webSocketPort,
+
+    int? httpPort,
+
+    bool? showLogo,
+
+    bool? showPaymentQR,
+
+    bool? showSummary,
+
+    String? advertVideoPath,
+
+    String? advertVideoUrl,
+
+    bool? isAdvertFromInternet,
+
+    Map<String, double>? logoPosition,
+
   }) {
 
     log('copyWith called with:');
@@ -1006,33 +974,33 @@ class AppSettings {
 
       itemsFontColor: itemsFontColor ?? this.itemsFontColor,
 
-      autoStart: autoStart,
+      autoStart: autoStart ?? this.autoStart,
 
-      useInactivityTimer: useInactivityTimer,
+      useInactivityTimer: useInactivityTimer ?? this.useInactivityTimer,
 
-      inactivityTimeout: inactivityTimeout,
+      inactivityTimeout: inactivityTimeout ?? this.inactivityTimeout,
 
-      showLogo: showLogo,
+      showLogo: showLogo ?? this.showLogo,
 
-      showPaymentQR: showPaymentQR,
+      showPaymentQR: showPaymentQR ?? this.showPaymentQR,
 
-      showSummary: showSummary,
+      showSummary: showSummary ?? this.showSummary,
 
-      webSocketUrl: webSocketUrl,
+      webSocketUrl: webSocketUrl ?? this.webSocketUrl,
 
-      httpUrl: httpUrl,
+      httpUrl: httpUrl ?? this.httpUrl,
 
-      isVersion85: isVersion85,
+      isVersion85: isVersion85 ?? this.isVersion85,
 
-      webSocketPort: webSocketPort,
+      webSocketPort: webSocketPort ?? this.webSocketPort,
 
-      httpPort: httpPort,
+      httpPort: httpPort ?? this.httpPort,
 
-      advertVideoPath: advertVideoPath,
+      advertVideoPath: advertVideoPath ?? this.advertVideoPath,
 
-      advertVideoUrl: advertVideoUrl,
+      advertVideoUrl: advertVideoUrl ?? this.advertVideoUrl,
 
-      isAdvertFromInternet: isAdvertFromInternet,
+      isAdvertFromInternet: isAdvertFromInternet ?? this.isAdvertFromInternet,
 
       fontFamily: fontFamily ?? this.fontFamily,
 
@@ -1053,6 +1021,11 @@ class AppSettings {
       evenRowColor: evenRowColor ?? this.evenRowColor,
 
       oddRowColor: oddRowColor ?? this.oddRowColor,
+
+      useCommonWidgetColor: useCommonWidgetColor ?? this.useCommonWidgetColor,
+      commonWidgetColor: commonWidgetColor ?? this.commonWidgetColor,
+
+      logoPosition: logoPosition ?? this.logoPosition,
 
     );
 

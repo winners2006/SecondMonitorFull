@@ -1,45 +1,37 @@
-import 'dart:io';
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:video_player_win/video_player_win.dart';
+import 'dart:io';
 import 'package:second_monitor/Service/logger.dart';
 
 class VideoManager {
-  VideoPlayerController? _videoController;
+  WinVideoPlayerController? _videoController;
   bool _isInitialized = false;
 
   Future<void> initialize({
     required bool isVideoFromInternet,
     required String videoSource,
   }) async {
-    log('VideoManager: Starting initialization');
-    if (videoSource.isEmpty) {
-      log('VideoManager: Empty video source');
-      return;
-    }
-
     try {
-      await dispose();  // Очищаем предыдущий контроллер
+      log('VideoManager: Starting initialization');
+      log('VideoManager: Source - ${isVideoFromInternet ? "Internet" : "Local"}: $videoSource');
 
-      log('VideoManager: Creating controller for: $videoSource');
       _videoController = isVideoFromInternet
-          ? VideoPlayerController.networkUrl(Uri.parse(videoSource))
-          : VideoPlayerController.file(File(videoSource));
+          ? WinVideoPlayerController.network(videoSource)
+          : WinVideoPlayerController.file(File(videoSource));
 
-      log('VideoManager: Initializing controller');
-      await _videoController!.initialize();
+      log('VideoManager: Controller created');
       
-      if (_videoController!.value.isInitialized) {
-        log('VideoManager: Controller initialized successfully');
-        await _videoController!.setLooping(true);
-        await _videoController!.setVolume(0.0);
-        _isInitialized = true;
-      } else {
-        log('VideoManager: Controller failed to initialize');
-        _isInitialized = false;
-      }
+      await _videoController!.initialize();
+      log('VideoManager: Controller initialized');
+      
+      await _videoController!.setLooping(true);
+      await _videoController!.setVolume(0.0);
+      log('VideoManager: Settings applied');
+      
+      _isInitialized = true;
+      log('VideoManager: Initialization complete');
     } catch (e) {
-      log('VideoManager: Error during initialization: $e');
+      log('VideoManager: Initialization error: $e');
       _isInitialized = false;
       rethrow;
     }
@@ -47,23 +39,19 @@ class VideoManager {
 
   Widget buildVideoPlayer(BuildContext context) {
     if (!_isInitialized || _videoController == null) {
-      log('VideoManager: Cannot build player - not initialized');
       return const SizedBox.shrink();
     }
-    
-    log('VideoManager: Building video player widget');
+
     return AspectRatio(
       aspectRatio: _videoController!.value.aspectRatio,
-      child: VideoPlayer(_videoController!),
+      child: WinVideoPlayer(_videoController!),
     );
   }
 
   void play() {
-    if (_videoController != null && _videoController!.value.isInitialized) {
-      log('VideoManager: Playing video');
+    if (_isInitialized && _videoController != null) {
       _videoController!.play();
-    } else {
-      log('VideoManager: Cannot play - controller not ready');
+      log('VideoManager: Video started playing');
     }
   }
 
@@ -75,7 +63,6 @@ class VideoManager {
 
   Future<void> dispose() async {
     if (_videoController != null) {
-      log('VideoManager: Disposing controller');
       await _videoController!.dispose();
       _videoController = null;
       _isInitialized = false;

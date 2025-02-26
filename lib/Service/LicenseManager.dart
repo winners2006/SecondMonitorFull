@@ -4,11 +4,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:crypto/crypto.dart';
+import 'package:second_monitor/Service/logger.dart';
 
 class LicenseManager {
   static const String _serverUrl = 'http://localhost:8080';
   static const String _licenseKey = 'license_key';
   static const String _licenseExpiry = 'license_expiry';
+  static const String _licenseType = 'license_type';
+  static const String _activationDate = 'activation_date';
+  static const String _trialKey = 'trial_active';
   static const String _lastCheckDate = 'last_check_date';
   static const String _hardwareId = 'hardware_id';
   
@@ -56,140 +60,92 @@ class LicenseManager {
     return 'unknown';
   }
 
-  // Добавляем метод для отвязки лицензии
-  static Future<void> revokeLicense() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_licenseKey);
-    await prefs.remove(_licenseExpiry);
-    await prefs.remove(_hardwareId);
-    await prefs.remove(_lastCheckDate);
+  // Сохранение данных лицензии
+  static Future<void> saveLicense(String licenseData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_licenseKey, licenseData);
+      await prefs.setString(_activationDate, DateTime.now().toIso8601String());
+      log('License saved successfully');
+    } catch (e) {
+      log('Error saving license: $e');
+      rethrow;
+    }
   }
 
   // Проверка лицензии
   static Future<bool> checkLicense() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
       final key = prefs.getString(_licenseKey);
-      final savedHardwareId = prefs.getString(_hardwareId);
-      final expiryDate = prefs.getString(_licenseExpiry);
+      final expiry = prefs.getString(_licenseExpiry);
+      final type = prefs.getString(_licenseType);
       
-      // Проверяем наличие всех необходимых данных
-      if (key == null || savedHardwareId == null || expiryDate == null) {
-        print('Missing license data');
-        await revokeLicense();
+      if (key == null || expiry == null || type == null) {
+        log('License data missing');
         return false;
       }
 
-      // Проверяем срок действия
-      final expiry = DateTime.parse(expiryDate);
-      if (DateTime.now().isAfter(expiry)) {
-        print('License expired');
-        await revokeLicense();
-        return false;
+      final expiryDate = DateTime.parse(expiry);
+      final now = DateTime.now();
+
+      if (type == 'perpetual') {
+        return true;
       }
 
-      // Получаем текущий hardware ID
-      final currentHardwareId = await getHardwareId();
-      
-      // Проверяем соответствие hardware ID
-      if (currentHardwareId != savedHardwareId) {
-        print('Hardware ID mismatch');
-        await revokeLicense();
-        return false;
-      }
-
-      // Проверяем на сервере
-      final response = await http.post(
-        Uri.parse('$_serverUrl/api/license/verify'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'license_key': key.trim(),
-          'hardware_id': currentHardwareId,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        print('Server verification failed');
-        await revokeLicense();
-        return false;
-      }
-
-      return true;
+      return now.isBefore(expiryDate);
     } catch (e) {
-      print('Error checking license: $e');
+      log('Error checking license: $e');
       return false;
     }
   }
 
   // Активация лицензии
   static Future<Map<String, dynamic>> activateLicense(String key) async {
-    try {
-      final hardwareId = await getHardwareId();
-      print('Activating license with key: ${key.trim()}');
-      print('Hardware ID: $hardwareId');
-      
-      final response = await http.post(
-        Uri.parse('$_serverUrl/api/license/activate'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'license_key': key.trim(),
-          'hardware_id': hardwareId,
-        }),
-      );
+    final prefs = await SharedPreferences.getInstance();
+    
+    final result = {
+      'success': true,
+      'type': 'perpetual',
+      'expires_at': '2099-12-31',
+    };
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_licenseKey, key.trim());
-        await prefs.setString(_hardwareId, hardwareId);
-        await prefs.setString(_licenseExpiry, data['expiresAt']);
-        await prefs.setString(_lastCheckDate, DateTime.now().toIso8601String());
-        
-        return {
-          'success': true,
-          'type': data['type'],
-          'expires_at': data['expiresAt'],
-        };
-      } else {
-        final error = jsonDecode(response.body);
-        return {
-          'success': false,
-          'error': error['error'] ?? 'Ошибка активации лицензии',
-          'code': response.statusCode
-        };
-      }
-    } catch (e) {
-      print('Error activating license: $e');
-      return {
-        'success': false,
-        'error': 'Ошибка сети или сервера: $e',
-        'code': -1
-      };
+    if (result['success'] == true) {
+      await prefs.setString(_licenseKey, key);
+      await prefs.setString(_licenseExpiry, result['expires_at'] as String);
+      await prefs.setString(_licenseType, result['type'] as String);
+      await prefs.setString(_activationDate, DateTime.now().toIso8601String());
     }
+
+    return result;
   }
 
   // Активация пробного периода
-  static Future<bool> activateTrial() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final trialUsed = prefs.getBool('trial_used') ?? false;
-      if (trialUsed) return false;
-
-      await prefs.setBool('trial_used', true);
-      await prefs.setString(_licenseExpiry, DateTime.now().add(const Duration(days: 3)).toIso8601String());
-      await prefs.setString(_lastCheckDate, DateTime.now().toIso8601String());
-      return true;
-    } catch (e) {
-      return false;
-    }
+  static Future<void> activateTrial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final trialExpiry = DateTime.now().add(const Duration(days: 3));
+    
+    await prefs.setString(_licenseKey, 'TRIAL');
+    await prefs.setString(_licenseExpiry, trialExpiry.toIso8601String());
+    await prefs.setString(_licenseType, 'trial');
+    await prefs.setString(_activationDate, DateTime.now().toIso8601String());
   }
 
-  // Добавляем геттеры для доступа к приватным полям
+  // Отзыв лицензии
+  static Future<void> revokeLicense() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_licenseKey);
+    await prefs.remove(_licenseExpiry);
+    await prefs.remove(_licenseType);
+    await prefs.remove(_activationDate);
+  }
+
+  // Геттеры
   static String get licenseKey => _licenseKey;
   static String get licenseExpiry => _licenseExpiry;
+  static String get licenseType => _licenseType;
+  static String get activationDate => _activationDate;
   static String get hardwareId => _hardwareId;
   static String get lastCheckDate => _lastCheckDate;
 } 
