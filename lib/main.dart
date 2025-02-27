@@ -13,6 +13,18 @@ void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
+  // Настройки окна Windows
+  WindowOptions windowOptions = const WindowOptions(
+    size: Size(800, 600),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+    title: "Second Monitor",
+  );
+  
+  await windowManager.waitUntilReadyToShow(windowOptions);
+
   // Проверяем лицензию
   final hasValidLicense = await LicenseManager.checkLicense();
   
@@ -41,8 +53,6 @@ void main(List<String> args) async {
 
   // Если лицензия валидна, запускаем нужное окно
   if (args.contains('--settings')) {
-    // Окно настроек всегда в полноэкранном режиме
-    await windowManager.waitUntilReadyToShow();
     await windowManager.setFullScreen(true);
     await windowManager.show();
     runApp(const MaterialApp(
@@ -81,12 +91,6 @@ void main(List<String> args) async {
       ),
     ));
   } else {
-    // Окно запуска в обычном размере по центру
-    await windowManager.waitUntilReadyToShow();
-    await windowManager.setTitle('Second Monitor');
-    await windowManager.setTitleBarStyle(TitleBarStyle.normal);
-    //await windowManager.setSize(const Size(800, 600));
-    await windowManager.center();
     await windowManager.show();
     
     runApp(const MaterialApp(
