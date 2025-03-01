@@ -12,24 +12,15 @@ class VideoManager {
     required String videoSource,
   }) async {
     try {
-      log('VideoManager: Starting initialization');
-      log('VideoManager: Source - ${isVideoFromInternet ? "Internet" : "Local"}: $videoSource');
-
       _videoController = isVideoFromInternet
           ? WinVideoPlayerController.network(videoSource)
           : WinVideoPlayerController.file(File(videoSource));
 
-      log('VideoManager: Controller created');
-      
       await _videoController!.initialize();
-      log('VideoManager: Controller initialized');
-      
       await _videoController!.setLooping(true);
       await _videoController!.setVolume(0.0);
-      log('VideoManager: Settings applied');
       
       _isInitialized = true;
-      log('VideoManager: Initialization complete');
     } catch (e) {
       log('VideoManager: Initialization error: $e');
       _isInitialized = false;
@@ -51,7 +42,6 @@ class VideoManager {
   void play() {
     if (_isInitialized && _videoController != null) {
       _videoController!.play();
-      log('VideoManager: Video started playing');
     }
   }
 

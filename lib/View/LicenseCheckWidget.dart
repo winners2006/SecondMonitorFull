@@ -14,12 +14,15 @@ abstract class LicenseCheckState<T extends LicenseCheckWidget> extends State<T> 
   }
 
   Future<void> _checkLicense() async {
-    final hasValidLicense = await LicenseManager.checkLicense();
-    if (!hasValidLicense && mounted) {
+    final result = await LicenseManager.checkLicense();
+    if (!result['valid'] && mounted) {
       await LicenseManager.revokeLicense();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'])),
+      );
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LicenseWindow()),
-        (route) => false, // Удаляем все предыдущие окна из стека
+        (route) => false,
       );
     }
   }

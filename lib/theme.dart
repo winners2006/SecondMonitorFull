@@ -12,32 +12,32 @@ class AppTheme {
       side: const BorderSide(color: Color(0xFF8F9092)),
     ),
   ).copyWith(
-    backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
-      if (states.contains(MaterialState.pressed)) {
+    backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+      if (states.contains(WidgetState.pressed)) {
         return const Color(0xFFD8D9DB);
       }
-      if (states.contains(MaterialState.hovered)) {
+      if (states.contains(WidgetState.hovered)) {
         return const Color(0xFFF5F5F5);
       }
       return Colors.white;
     }),
-    elevation: MaterialStateProperty.resolveWith<double>((states) {
-      if (states.contains(MaterialState.hovered)) {
+    elevation: WidgetStateProperty.resolveWith<double>((states) {
+      if (states.contains(WidgetState.hovered)) {
         return 4;
       }
-      if (states.contains(MaterialState.pressed)) {
+      if (states.contains(WidgetState.pressed)) {
         return 8;
       }
       return 2;
     }),
-    overlayColor: MaterialStateProperty.resolveWith<Color?>((states) {
-      if (states.contains(MaterialState.pressed)) {
+    overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.pressed)) {
         return Colors.grey.withOpacity(0.1);
       }
       return null;
     }),
-    shadowColor: MaterialStateProperty.resolveWith<Color>((states) {
-      if (states.contains(MaterialState.hovered)) {
+    shadowColor: WidgetStateProperty.resolveWith<Color>((states) {
+      if (states.contains(WidgetState.hovered)) {
         return const Color(0xFFCECFD1);
       }
       return Colors.black.withOpacity(0.2);

@@ -6,6 +6,7 @@ import 'package:second_monitor/View/second_monitor.dart';
 import 'package:second_monitor/View/LicenseCheckWidget.dart';
 import 'package:second_monitor/Service/WindowService.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class LaunchWindow extends LicenseCheckWidget {
   const LaunchWindow({super.key});
@@ -15,7 +16,7 @@ class LaunchWindow extends LicenseCheckWidget {
 }
 
 class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
-  static const String appVersion = '1.0.0';
+  String _appVersion = '';
   bool autoStart = false;
 
   @override
@@ -24,6 +25,7 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
     WindowService.setupMainWindow();
     _loadAutoStartSetting();
     _initHotkeys();
+    _loadAppVersion();
   }
 
   Future<void> _loadAutoStartSetting() async {
@@ -65,9 +67,19 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
     );
   }
 
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = packageInfo.version;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text('Second Monitor v$_appVersion'),
+      ),
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 600),
@@ -89,9 +101,9 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Версия $appVersion',
-                style: TextStyle(
+              Text(
+                'Версия $_appVersion',
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
@@ -116,10 +128,10 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
                   ),
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
-                    icon: Icon(Icons.settings, color: const Color(0xFF3579A6)),
-                    label: Text(
+                    icon: const Icon(Icons.settings, color: Color(0xFF3579A6)),
+                    label: const Text(
                       'Настройки',
-                      style: TextStyle(color: const Color(0xFF3579A6)),
+                      style: TextStyle(color: Color(0xFF3579A6)),
                     ),
                     onPressed: _openSettings,
                   ),
@@ -134,10 +146,10 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
                     style: TextStyle(fontSize: 14),
                   ),
                   const SizedBox(height: 4),
-                  SelectableText(
+                  const SelectableText(
                     'support@jndev.ru',
-                    style: const TextStyle(fontSize: 14),
-                    toolbarOptions: const ToolbarOptions(copy: true),
+                    style: TextStyle(fontSize: 14),
+                    toolbarOptions: ToolbarOptions(copy: true),
                   ),
                   const SizedBox(height: 4),
                   InkWell(

@@ -42,12 +42,10 @@ class WebSocketService {
 
     final wsUrl = 'ws://$host:4002/ws';
     try {
-      log('Attempting to connect to WebSocket at $wsUrl');
       _webSocket = await WebSocket.connect(wsUrl);
       _isConnected = true;
       _listenToMessages();
       _reconnectTimer?.cancel();
-      log('WebSocket connected successfully');
     } catch (e) {
       log('WebSocket connection error: $e');
       _scheduleReconnect(host, 4002);
@@ -70,7 +68,6 @@ class WebSocketService {
   void _listenToMessages() {
     _webSocket?.listen(
       (data) {
-        log('WebSocket received data: $data');
         try {
           _onDataReceived(data);
         } catch (e) {
@@ -83,8 +80,6 @@ class WebSocketService {
         _isConnected = false
       },
       onDone: () => {
-        log('WebSocket connection closed'),
-        log('WebSocketService: WebSocket connection closed'),
         _isConnected = false
       },
     );

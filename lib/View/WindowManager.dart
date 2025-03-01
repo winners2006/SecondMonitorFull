@@ -18,7 +18,6 @@ import 'package:second_monitor/View/LicenseWindow.dart';
 import 'package:second_monitor/View/LicenseCheckWidget.dart';
 import 'package:second_monitor/Service/WindowService.dart';
 import 'package:second_monitor/View/ResizableWidget.dart';
-import 'package:window_manager/window_manager.dart';
 
 // Окно настроек приложения
 class SettingsWindow extends LicenseCheckWidget {
@@ -1475,7 +1474,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> with Window
                         title: const Text('Общие настройки',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         leading: const Icon(Icons.settings,
-                            color: const Color(0xFF3579A6)),
+                            color: Color(0xFF3579A6)),
                         children: [
                           SwitchListTile(
                             title: const Text('Автозапуск'),
@@ -1504,7 +1503,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> with Window
                         title: const Text('Горячие клавиши',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         leading: const Icon(Icons.keyboard,
-                            color: const Color(0xFF3579A6)),
+                            color: Color(0xFF3579A6)),
                         children: [
                           _buildHotkeysSection(),
                         ],
@@ -1514,7 +1513,7 @@ class _SettingsWindowState extends LicenseCheckState<SettingsWindow> with Window
                         title: const Text('Настройки подключения',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         leading: const Icon(Icons.settings_ethernet,
-                            color: const Color(0xFF3579A6)),
+                            color: Color(0xFF3579A6)),
                         children: [
                           SwitchListTile(
                             title: const Text('Использовать 1С 8.5'),

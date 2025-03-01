@@ -1,13 +1,15 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:crypto/crypto.dart';
 import 'package:second_monitor/Service/logger.dart';
+import 'package:http/http.dart' as http;
+import '../Config/config.dart';
 
 class LicenseManager {
-  static const String _serverUrl = 'http://localhost:8080';
+  static String get _serverUrl => 
+    '${Config.licenseServerUrl}:${Config.licenseServerPort}';
   static const String _licenseKey = 'license_key';
   static const String _licenseExpiry = 'license_expiry';
   static const String _licenseType = 'license_type';
@@ -15,6 +17,7 @@ class LicenseManager {
   static const String _trialKey = 'trial_active';
   static const String _lastCheckDate = 'last_check_date';
   static const String _hardwareId = 'hardware_id';
+  static const String _offlineMode = 'offline_mode';
   
   // Получение hardware ID
   static Future<String> getHardwareId() async {
@@ -37,7 +40,7 @@ class LicenseManager {
         
         return digest.toString();
       } catch (e) {
-        print('Error getting hardware ID: $e');
+        log('Error getting hardware ID: $e');
         return 'unknown';
       }
     }
@@ -55,7 +58,7 @@ class LicenseManager {
         return process.stdout.toString().trim();
       }
     } catch (e) {
-      print('Error getting WMI value: $e');
+      log('Error getting WMI value: $e');
     }
     return 'unknown';
   }
@@ -73,58 +76,174 @@ class LicenseManager {
     }
   }
 
-  // Проверка лицензии
-  static Future<bool> checkLicense() async {
+  // Проверка лицензии с учетом онлайн/офлайн режима
+  static Future<Map<String, dynamic>> checkLicense() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
       final key = prefs.getString(_licenseKey);
-      final expiry = prefs.getString(_licenseExpiry);
       final type = prefs.getString(_licenseType);
       
-      if (key == null || expiry == null || type == null) {
-        log('License data missing');
-        return false;
+      // Проверяем наличие базовых данных лицензии
+      if (key == null || type == null) {
+        return {'valid': false, 'message': 'Лицензия не найдена'};
       }
 
-      final expiryDate = DateTime.parse(expiry);
-      final now = DateTime.now();
-
-      if (type == 'perpetual') {
-        return true;
+      // Проверяем тестовый период (только локально)
+      if (type == 'trial') {
+        final expiryStr = prefs.getString(_licenseExpiry);
+        if (expiryStr == null) return {'valid': false, 'message': 'Ошибка тестового периода'};
+        
+        final expiry = DateTime.parse(expiryStr);
+        if (DateTime.now().isAfter(expiry)) {
+          await revokeLicense(); // Очищаем истекшую пробную лицензию
+          return {'valid': false, 'message': 'Тестовый период истек'};
+        }
+        return {'valid': true, 'message': 'Тестовый период активен'};
       }
 
-      return now.isBefore(expiryDate);
+      // Для обычных лицензий проверяем на сервере
+      try {
+        final response = await _checkLicenseOnServer(key);
+        await prefs.setString(_lastCheckDate, DateTime.now().toIso8601String());
+        await prefs.setBool(_offlineMode, false);
+        return response;
+      } catch (e) {
+        // Сервер недоступен, проверяем возможность офлайн работы
+        final lastCheck = prefs.getString(_lastCheckDate);
+        final isOfflineMode = prefs.getBool(_offlineMode) ?? false;
+        
+        if (lastCheck != null) {
+          final lastCheckDate = DateTime.parse(lastCheck);
+          final offlinePeriodValid = DateTime.now().difference(lastCheckDate) <= Config.offlinePeriod;
+          
+          if (offlinePeriodValid || isOfflineMode) {
+            await prefs.setBool(_offlineMode, true);
+            return {'valid': true, 'message': 'Офлайн режим активен'};
+          }
+        }
+        
+        return {
+          'valid': false,
+          'message': 'Сервер лицензий недоступен. Превышен период автономной работы'
+        };
+      }
     } catch (e) {
       log('Error checking license: $e');
-      return false;
+      return {'valid': false, 'message': 'Ошибка проверки лицензии'};
     }
+  }
+
+  // Проверка лицензии на сервере
+  static Future<Map<String, dynamic>> _checkLicenseOnServer(String key) async {
+    try {
+      final hardwareId = await getHardwareId();
+      final response = await http.post(
+        Uri.parse('$_serverUrl${Config.verifyEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'license_key': key,
+          'hardware_id': hardwareId,
+        }),
+      ).timeout(Config.connectionTimeout);
+
+      log('Verify response status: ${response.statusCode}');
+      log('Verify response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['valid']) {
+          await _updateLicenseData({
+            'type': data['type'],
+            'expires_at': data['expiresAt'],
+            'customer_name': data['customerName'] ?? 'Unknown',
+            'is_active': true,
+          });
+          return {'valid': true, 'message': 'Лицензия активна'};
+        } else {
+          return {'valid': false, 'message': data['message'] ?? 'Лицензия недействительна'};
+        }
+      }
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    } catch (e) {
+      log('Error in _checkLicenseOnServer: $e');
+      throw Exception('Ошибка соединения с сервером');
+    }
+  }
+
+  // Обновление данных лицензии
+  static Future<void> _updateLicenseData(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_licenseExpiry, data['expires_at']);
+    await prefs.setString(_licenseType, data['type']);
+    await prefs.setString(_lastCheckDate, DateTime.now().toIso8601String());
   }
 
   // Активация лицензии
   static Future<Map<String, dynamic>> activateLicense(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    final result = {
-      'success': true,
-      'type': 'perpetual',
-      'expires_at': '2099-12-31',
-    };
+    try {
+      final hardwareId = await getHardwareId();
+      final url = '$_serverUrl${Config.activateEndpoint}';
+      log('Attempting to activate license at URL: $url');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'license_key': key,
+          'hardware_id': hardwareId,
+        }),
+      ).timeout(Config.connectionTimeout);
 
-    if (result['success'] == true) {
-      await prefs.setString(_licenseKey, key);
-      await prefs.setString(_licenseExpiry, result['expires_at'] as String);
-      await prefs.setString(_licenseType, result['type'] as String);
-      await prefs.setString(_activationDate, DateTime.now().toIso8601String());
+      log('Activate response status: ${response.statusCode}');
+      log('Activate response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          await _updateLicenseData({
+            'type': data['type'],
+            'expires_at': data['expiresAt'],
+            'customer_name': data['customerName'] ?? 'Unknown',
+            'is_active': true,
+          });
+          
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_licenseKey, key);
+          await prefs.setString(_activationDate, DateTime.now().toIso8601String());
+          
+          return {
+            'success': true,
+            'type': data['type'],
+            'expires_at': data['expiresAt'],
+            'customer_name': data['customerName'] ?? 'Unknown',
+          };
+        } else {
+          return {
+            'success': false,
+            'error': data['error'] ?? data['message'] ?? 'Ошибка активации'
+          };
+        }
+      }
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    } catch (e) {
+      log('Error in activateLicense: $e');
+      return {
+        'success': false,
+        'error': 'Ошибка соединения с сервером'
+      };
     }
-
-    return result;
   }
 
   // Активация пробного периода
   static Future<void> activateTrial() async {
     final prefs = await SharedPreferences.getInstance();
-    final trialExpiry = DateTime.now().add(const Duration(days: 3));
+    final trialExpiry = DateTime.now().add(Config.trialPeriod);
     
     await prefs.setString(_licenseKey, 'TRIAL');
     await prefs.setString(_licenseExpiry, trialExpiry.toIso8601String());

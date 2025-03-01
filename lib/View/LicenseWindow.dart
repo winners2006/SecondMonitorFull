@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:second_monitor/Service/logger.dart';
 import '../Service/LicenseManager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,13 +27,14 @@ class _LicenseWindowState extends State<LicenseWindow> {
     final prefs = await SharedPreferences.getInstance();
     final expiryDate = prefs.getString(LicenseManager.licenseExpiry);
     final licenseKey = prefs.getString(LicenseManager.licenseKey);
+    final licenseType = prefs.getString(LicenseManager.licenseType);
     
-    if (expiryDate != null && licenseKey != null) {
+    if (expiryDate != null && licenseKey != null && licenseType != null) {
       setState(() {
         _licenseInfo = {
           'key': licenseKey,
           'expires_at': expiryDate,
-          'type': DateTime.parse(expiryDate).year > 2099 ? 'perpetual' : 'annual',
+          'type': licenseType,
         };
       });
     }
@@ -95,7 +97,8 @@ class _LicenseWindowState extends State<LicenseWindow> {
                       const SizedBox(height: 8),
                       Text('Ключ: ${_licenseInfo!['key']}'),
                       Text(
-                        'Тип: ${_licenseInfo!['type'] == 'perpetual' ? 'Бессрочная' : 'Годовая'}',
+                        'Тип: ${_licenseInfo!['type'] == 'trial' ? 'Пробный период' : 
+                              (_licenseInfo!['type'] == 'perpetual' ? 'Бессрочная' : 'Годовая')}',
                       ),
                       Text(
                         'Действует до: ${_formatDate(_licenseInfo!['expires_at'])}',
@@ -126,9 +129,9 @@ class _LicenseWindowState extends State<LicenseWindow> {
               onPressed: _isActivating ? null : _activateLicense,
               child: _isActivating
                 ? const CircularProgressIndicator()
-                : Text(
+                : const Text(
                     'Активировать лицензию',
-                    style: TextStyle(color: const Color(0xFF3579A6)),
+                    style: TextStyle(color: Color(0xFF3579A6)),
                   ),
             ),
             if (_licenseInfo == null) ...[
@@ -140,9 +143,9 @@ class _LicenseWindowState extends State<LicenseWindow> {
               const SizedBox(height: 8),
               ElevatedButton(
                 onPressed: _activateTrial,
-                child: Text(
+                child: const Text(
                   'Активировать пробную версию',
-                  style: TextStyle(color: const Color(0xFF3579A6)),
+                  style: TextStyle(color: Color(0xFF3579A6)),
                 ),
               ),
             ],
@@ -158,10 +161,28 @@ class _LicenseWindowState extends State<LicenseWindow> {
   }
 
   Future<void> _activateLicense() async {
+    // Проверка на пустое поле и формат
+    final licenseKey = _licenseController.text.trim();
+    if (licenseKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите лицензионный ключ')),
+      );
+      return;
+    }
+
+    // Проверка формата ключа (XXXX-XXXX-XXXX-XXXX-XXXX)
+    final keyFormat = RegExp(r'^[A-Z0-9]{4}(-[A-Z0-9]{4}){4}$');
+    if (!keyFormat.hasMatch(licenseKey)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Неверный формат лицензионного ключа')),
+      );
+      return;
+    }
+
     setState(() => _isActivating = true);
     
     try {
-      final result = await LicenseManager.activateLicense(_licenseController.text);
+      final result = await LicenseManager.activateLicense(licenseKey);
       
       if (result['success']) {
         if (mounted) {
@@ -185,7 +206,7 @@ class _LicenseWindowState extends State<LicenseWindow> {
               duration: const Duration(seconds: 5),
             ),
           );
-          Navigator.pushReplacementNamed(context, '/launch');
+          Navigator.of(context).pushReplacementNamed('/launch');
         }
       } else {
         if (mounted) {
@@ -199,7 +220,7 @@ class _LicenseWindowState extends State<LicenseWindow> {
         }
       }
     } catch (e) {
-      print('Error in _activateLicense: $e');
+      log('Error in _activateLicense: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка: $e')),
@@ -217,7 +238,7 @@ class _LicenseWindowState extends State<LicenseWindow> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Пробный период активирован')),
         );
-        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, '/launch');
       }
     } catch (e) {
       if (mounted) {

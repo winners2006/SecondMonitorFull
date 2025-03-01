@@ -12,13 +12,7 @@ typedef DataCallback = void Function(dynamic data);
 /// - Прием HTTP POST-запросов от 1С с данными о чеке, товарах и программе лояльности
 /// - Режим совместимости с 1С 8.5 (отключение HTTP-сервера)
 /// - Буферизацию полученных данных для последующей передачи через WebSocket
-/// 
-/// Пример использования:
-/// ```dart
-/// final server = Server();
-/// server.setVersion85(false); // Использовать HTTP для версий младше 8.5
-/// server.startServer('localhost', 4001);
-/// ```
+
 class Server {
   /// Буфер для хранения последних полученных данных от 1С
   String receivedDataFrom1C = '';

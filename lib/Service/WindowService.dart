@@ -29,11 +29,7 @@ class WindowService {
       final screenSize = secondScreen.size;
       final screenPos = secondScreen.visiblePosition;
       
-      if (screenSize != null && screenPos != null) {
-        print('Second screen found:');
-        print('Position: ${screenPos.dx},${screenPos.dy}');
-        print('Size: ${screenSize.width}x${screenSize.height}');
-        
+      if (screenPos != null) {
         // Сначала устанавливаем позицию и размер
         await windowManager.setFullScreen(false); // Временно отключаем полноэкранный режим
         await windowManager.setBounds(
@@ -55,14 +51,11 @@ class WindowService {
       final primaryScreen = screens[0];
       final screenSize = primaryScreen.size;
       
-      if (screenSize != null) {
-        print('Using primary screen: ${screenSize.width}x${screenSize.height}');
-        await windowManager.setBounds(
-          Rect.fromLTWH(0, 0, screenSize.width, screenSize.height),
-        );
-        await windowManager.setFullScreen(true);
-      }
-    }
+      await windowManager.setBounds(
+        Rect.fromLTWH(0, 0, screenSize.width, screenSize.height),
+      );
+      await windowManager.setFullScreen(true);
+        }
   }
 
   static Future<void> moveToMainScreen() async {
