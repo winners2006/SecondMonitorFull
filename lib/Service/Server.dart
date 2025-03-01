@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:second_monitor/Service/logger.dart';
 import 'package:second_monitor/Service/AppSettings.dart';
+import 'package:second_monitor/Service/WebSocketService.dart';
 
 typedef DataCallback = void Function(dynamic data);
 
@@ -27,6 +28,8 @@ class Server {
   final AppSettings settings;  // Добавляем поле для настроек
 
   DataCallback? _onDataReceived;
+
+  static final WebSocketService _wsService = WebSocketService();
 
   Server(this.settings) {
     log('Server instance created');
@@ -146,5 +149,33 @@ class Server {
 
   void setOnDataReceived(DataCallback callback) {
     _onDataReceived = callback;
+  }
+
+  static Future<void> initializeConnection() async {
+    await _wsService.connect('ws://your-server:port');
+    
+    _wsService.messageStream.listen((message) {
+      log('Received WebSocket message: $message');
+    });
+  }
+  
+  static void sendMessage(dynamic message) {
+    _wsService.sendMessage(message);
+  }
+  
+  static Future<void> dispose() async {
+    await _wsService.dispose();
+  }
+
+  static void handleServerMessage(dynamic message) {
+    try {
+      log('Received WebSocket message: $message');
+      // Обработка сообщения
+      if (message is Map) {
+        // Ваша логика обработки сообщений
+      }
+    } catch (e) {
+      log('Error handling server message: $e');
+    }
   }
 }

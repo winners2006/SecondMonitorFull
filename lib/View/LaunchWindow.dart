@@ -80,97 +80,99 @@ class _LaunchWindowState extends LicenseCheckState<LaunchWindow> {
       appBar: AppBar(
         title: Text('Second Monitor v$_appVersion'),
       ),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 600),
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/logo.png',
-                width: 200,
-                height: 200,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Second Monitor',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+      body: SingleChildScrollView(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600),
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/logo.png',
+                  width: 200,
+                  height: 200,
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Версия $_appVersion',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
+                const SizedBox(height: 24),
+                const Text(
+                  'Second Monitor',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Программа для управления вторым монитором в торговых точках',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.play_arrow, color: Color(0xFF3579A6)),
-                    label: const Text(
-                      'Запустить',
-                      style: TextStyle(color: Color(0xFF3579A6)),
+                const SizedBox(height: 16),
+                Text(
+                  'Версия $_appVersion',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Программа для управления вторым монитором в торговых точках',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.play_arrow, color: Color(0xFF3579A6)),
+                      label: const Text(
+                        'Запустить',
+                        style: TextStyle(color: Color(0xFF3579A6)),
+                      ),
+                      onPressed: _launchApp,
                     ),
-                    onPressed: _launchApp,
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.settings, color: Color(0xFF3579A6)),
-                    label: const Text(
-                      'Настройки',
-                      style: TextStyle(color: Color(0xFF3579A6)),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.settings, color: Color(0xFF3579A6)),
+                      label: const Text(
+                        'Настройки',
+                        style: TextStyle(color: Color(0xFF3579A6)),
+                      ),
+                      onPressed: _openSettings,
                     ),
-                    onPressed: _openSettings,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Column(
-                children: [
-                  const Text(
-                    'Контакты:',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  const SelectableText(
-                    'support@jndev.ru',
-                    style: TextStyle(fontSize: 14),
-                    toolbarOptions: ToolbarOptions(copy: true),
-                  ),
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: () async {
-                      final Uri url = Uri.parse('https://jndev.ru');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      }
-                    },
-                    child: const Text(
-                      'jndev.ru',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Column(
+                  children: [
+                    const Text(
+                      'Контакты:',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    const SelectableText(
+                      'support@jndev.ru',
+                      style: TextStyle(fontSize: 14),
+                      toolbarOptions: ToolbarOptions(copy: true),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () async {
+                        final Uri url = Uri.parse('https://jndev.ru');
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url);
+                        }
+                      },
+                      child: const Text(
+                        'jndev.ru',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

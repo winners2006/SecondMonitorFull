@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show RawKeyDownEvent;
+import 'package:flutter/services.dart' show RawKeyDownEvent, RawKeyboard;
 import 'package:second_monitor/Service/logger.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:second_monitor/Service/ScreenManager.dart';
@@ -236,20 +237,18 @@ class SecondMonitor extends LicenseCheckWidget {
   _SecondMonitorState createState() => _SecondMonitorState();
 }
 
-class _SecondMonitorState extends LicenseCheckState<SecondMonitor>
-    with WidgetsBindingObserver {
-  late AppSettings settings; // Переменная для хранения настроек
-  bool isLoading = true; // Флаг загрузки
-  late Size selectedSize; // Убираем значение по умолчанию
-  late WebSocketService _webSocketService; // Сервис WebSocket
-  late Server _server; // Сервис сервера
-  LoyaltyProgram? _loyaltyProgram; // Программа лояльности
-  Summary? _summary; // Сводка
-  List<CheckItem> _checkItems = []; // Список элементов проверки
-  PaymentQRCode? _paymentQRCode; // QR-код для оплаты
-  final VideoManager _videoManager = VideoManager(); // Менеджер видео
-  final VideoManager _sideAdvertVideoManager =
-      VideoManager(); // Менеджер боковой рекламы
+class _SecondMonitorState extends LicenseCheckState<SecondMonitor> with WidgetsBindingObserver {
+  late AppSettings settings;
+  bool isLoading = true;
+  late Size selectedSize;
+  late WebSocketService _webSocketService;
+  late Server _server;
+  LoyaltyProgram? _loyaltyProgram;
+  Summary? _summary;
+  List<CheckItem> _checkItems = [];
+  PaymentQRCode? _paymentQRCode;
+  final VideoManager _videoManager = VideoManager();
+  final VideoManager _sideAdvertVideoManager = VideoManager();
   final FocusNode _focusNode = FocusNode();
   WinVideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
@@ -326,7 +325,7 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor>
       _server.startServer(settings.httpUrl, settings.httpPort);
       _webSocketService = WebSocketService();
       _webSocketService.setOnDataReceived(_onDataReceived);
-      _webSocketService.connect(settings.webSocketUrl, settings.webSocketPort);
+      _webSocketService.connect('ws://${settings.webSocketUrl}:${settings.webSocketPort}');
 
       await _checkAndCopyDll();
 
@@ -350,6 +349,7 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor>
       }
     }
   }
+
   // Загрузка настроек
   Future<void> _loadSettings() async {
     try {
@@ -1120,27 +1120,41 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor>
   }
 
   bool _isHotkeyMatch(RawKeyEvent event, String hotkey) {
-    if (hotkey.isEmpty) return false;
+    try {
+      if (hotkey.isEmpty) return false;
 
-    List<String> keys = hotkey.split(' + ');
-    bool ctrlRequired = keys.contains('Ctrl');
-    bool shiftRequired = keys.contains('Shift');
-    bool altRequired = keys.contains('Alt');
-    // Получаем основную клавишу (последний элемент в комбинации)
-    String letterKey = keys.lastWhere(
-      (k) => !['Ctrl', 'Shift', 'Alt'].contains(k),
-      orElse: () => '',
-    );
+      List<String> keys = hotkey.split(' + ');
+      bool ctrlRequired = keys.contains('Ctrl');
+      bool shiftRequired = keys.contains('Shift');
+      bool altRequired = keys.contains('Alt');
+      
+      String letterKey = keys.lastWhere(
+        (k) => !['Ctrl', 'Shift', 'Alt'].contains(k),
+        orElse: () => '',
+      );
 
-    // Проверяем совпадение модификаторов
-    bool modifiersMatch = event.isControlPressed == ctrlRequired &&
-        event.isShiftPressed == shiftRequired &&
-        event.isAltPressed == altRequired;
+      if (letterKey.isEmpty) return false;
 
-    // Проверяем совпадение основной клавиши
-    bool keyMatches =
-        event.logicalKey.keyLabel.toUpperCase() == letterKey.toUpperCase();
-    return modifiersMatch && keyMatches;
+      // Проверяем модификаторы более безопасным способом
+      bool modifiersMatch = 
+        (event.isControlPressed == ctrlRequired) &&
+        (event.isShiftPressed == shiftRequired) &&
+        (event.isAltPressed == altRequired);
+
+      // Более безопасная проверка основной клавиши
+      bool keyMatches = false;
+      try {
+        keyMatches = event.logicalKey.keyLabel.toUpperCase() == letterKey.toUpperCase();
+      } catch (e) {
+        log('Error matching key: $e');
+        return false;
+      }
+
+      return modifiersMatch && keyMatches;
+    } catch (e) {
+      log('Error in hotkey matching: $e');
+      return false;
+    }
   }
 
   @override
@@ -1149,7 +1163,7 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor>
     _focusNode.dispose();
     _videoManager.dispose();
     _sideAdvertVideoManager.dispose();
-    _webSocketService.disconnect();
+    _webSocketService.dispose();
     _server.stopServer();
     _disposeVideoController();
     super.dispose();
@@ -1157,8 +1171,10 @@ class _SecondMonitorState extends LicenseCheckState<SecondMonitor>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {}
+    if (state == AppLifecycleState.inactive || 
+        state == AppLifecycleState.paused) {
+      _focusNode.unfocus();
+    }
   }
 
   TextStyle _getWidgetTextStyle(String type) {

@@ -1,5 +1,5 @@
 #define MyAppName "Second Monitor"
-#define MyAppVersion "1.0.2"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "J&N Development"
 #define MyAppURL "https://jndev.ru"
 #define MyAppExeName "second_monitor.exe"
